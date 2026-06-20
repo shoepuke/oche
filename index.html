@@ -171,6 +171,10 @@
   tr.clickable{cursor:pointer}
   tr.clickable:hover td{background:var(--panel-2)}
   .oppname{color:var(--chalk);font-weight:500}
+  @keyframes meetflash{0%{background:rgba(224,177,60,.32)}100%{background:transparent}}
+  #meetTable tbody tr.meet-hl td{animation:meetflash 2.2s ease-out}
+  #meetTable tbody tr.meet-hl td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+  @media (prefers-reduced-motion:reduce){#meetTable tbody tr.meet-hl td{animation:none;background:rgba(224,177,60,.16)}}
 
   .hidden{display:none!important}
   @media (max-width:720px){
@@ -316,6 +320,12 @@ Date	Opponent	Event	Legs_You	Legs_Opp	Your_3Dart_Avg
              <div class="delta" id="oWinPct"></div></div>
         <div class="card"><div class="k" id="oAvgLabel">Career average</div><div class="v" id="oAvg">—</div></div>
         <div class="card"><div class="k" id="oCountLabel">Opponents faced</div><div class="v plain" id="oCount">0</div></div>
+      </div>
+      <div class="panel-block">
+        <h3 id="careerTitle">Career trend</h3>
+        <p class="csub" id="careerSub">Every match in order. The line tracks your career average as it evolved.</p>
+        <div class="chart-box"><canvas id="careerChart"></canvas></div>
+        <p class="empty-note hidden" id="careerEmpty">No data for this metric yet.</p>
       </div>
       <div class="panel-block">
         <h3 id="overviewTitle">Opponents</h3>
@@ -605,14 +615,14 @@ function renderDetail(){
   $('meetContextHead').textContent = isOpp ? 'Event' : 'Opponent';
   $('meetMetricHead').textContent = mdef ? mdef.label : 'Metric';
   $('trendTitle').textContent = isOpp ? `${label} vs ${sel}` : `${label} — ${sel}`;
-  drawTrend(rows, avgAll, label);
+  drawTrend('trendChart', 'trendEmpty', rows, avgAll, label, {onPoint: highlightMeeting});
 
   // meetings table (most recent first)
   const tb = $('meetTable').querySelector('tbody');
   tb.innerHTML = rows.slice().reverse().map(r=>{
     const ctx = isOpp ? r.event : r.opponent;
     return `
-    <tr>
+    <tr data-mk="${escapeAttr(matchKey(r))}">
       <td>${escapeHtml(r.date)}</td>
       <td>${escapeHtml(ctx)||'<span style="color:var(--dim)">—</span>'}</td>
       <td class="num">${r.legsYou}–${r.legsOpp}</td>
@@ -621,9 +631,37 @@ function renderDetail(){
     </tr>`;}).join('');
 }
 
-function drawTrend(rows, avgAll, label){
-  const box = $('trendChart');
-  const empty = $('trendEmpty');
+// ---- match-point navigation ----
+function matchKey(r){ return `${r.date}|${r.opponent}|${r.event}|${r.legsYou}-${r.legsOpp}`; }
+
+function highlightMeeting(r){
+  const tr = $('meetTable').querySelector(`tbody tr[data-mk="${cssEsc(matchKey(r))}"]`);
+  if(!tr) return;
+  document.querySelectorAll('tr.meet-hl').forEach(x=>x.classList.remove('meet-hl'));
+  // restart the flash animation
+  tr.classList.remove('meet-hl'); void tr.offsetWidth; tr.classList.add('meet-hl');
+  tr.scrollIntoView({behavior: reduceMotion?'auto':'smooth', block:'center'});
+}
+function cssEsc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g,'\\$&'); }
+
+function openMatchFromCareer(r){
+  // jump into the opponent head-to-head that contains this match, then flash the row
+  if(state.mode!=='opp'){
+    state.mode='opp';
+    $('modeOpp').setAttribute('aria-pressed','true');
+    $('modeEvent').setAttribute('aria-pressed','false');
+    state.sort={key:'p',dir:'desc'};
+  }
+  state.opp = r.opponent;
+  populatePicker();
+  render();
+  highlightMeeting(r);
+}
+
+function drawTrend(canvasId, emptyId, rows, avgAll, label, opts){
+  opts = opts || {};
+  const box = $(canvasId);
+  const empty = $(emptyId);
   const valued = rows.filter(r=>metricVal(r)!==null);
   if(chart){ chart.destroy(); chart=null; }
   if(!state.metric || valued.length<1){
@@ -639,7 +677,12 @@ function drawTrend(rows, avgAll, label){
     pointBackgroundColor:colors, pointBorderColor:colors, pointRadius:5, pointHoverRadius:7,
     tension:.25, fill:false
   }];
-  if(avgAll!==null){
+  if(opts.runningAvg){
+    // career average as it stood after each match (cumulative mean)
+    let sum=0; const run = data.map((v,i)=>{ sum+=v; return Math.round(sum/(i+1)*100)/100; });
+    ds.push({label:'Career avg (running)', data:run, borderColor:'#9fb6c4',
+      borderWidth:2.5, pointRadius:0, tension:.3, fill:false});
+  } else if(avgAll!==null){
     ds.push({label:'Career avg', data:labels.map(()=>avgAll), borderColor:'#7d858a',
       borderWidth:1.5, borderDash:[5,5], pointRadius:0, tension:0});
   }
@@ -650,13 +693,20 @@ function drawTrend(rows, avgAll, label){
       responsive:true, maintainAspectRatio:false,
       animation: reduceMotion ? false : {duration:500},
       interaction:{mode:'index', intersect:false},
+      onHover:(e,els)=>{ if(e.native&&e.native.target) e.native.target.style.cursor = (els&&els.length&&opts.onPoint)?'pointer':'default'; },
+      onClick:(e,els)=>{
+        if(!opts.onPoint || !els || !els.length) return;
+        const el = els.find(x=>x.datasetIndex===0) || els[0];
+        const r = valued[el.index];
+        if(r) opts.onPoint(r);
+      },
       plugins:{
         legend:{labels:{color:'#929a9c', font:{family:'Inter'}}},
         tooltip:{
           backgroundColor:'#1c2024', borderColor:'#363c41', borderWidth:1,
           titleColor:'#ece7da', bodyColor:'#ece7da',
           callbacks:{ afterBody:(items)=>{ const r=valued[items[0].dataIndex];
-            return r ? `${r.legsYou}–${r.legsOpp} (${r.result})` : ''; } }
+            return r ? `${r.opponent} · ${r.legsYou}–${r.legsOpp} (${r.result})` : ''; } }
         }
       },
       scales:{
@@ -680,6 +730,11 @@ function renderOverview(){
   const mdef = metricByKey(state.metric);
   $('oAvgLabel').textContent = mdef ? 'Career '+mdef.label : 'Career average';
   $('oAvg').textContent = fmtMetric(mean(rows.map(metricVal)));
+
+  // career trend chart of the tracked metric across all matches
+  const careerLabel = mdef ? mdef.label : 'Metric';
+  $('careerTitle').textContent = `Career ${careerLabel}`;
+  drawTrend('careerChart', 'careerEmpty', rows, null, careerLabel, {runningAvg:true, onPoint: openMatchFromCareer});
 
   // aggregate by the active dimension
   const keyOf = isOpp ? (r=>r.opponent) : (r=>eventKey(r));
