@@ -286,9 +286,9 @@ run after that is silent and just updates what's new.</p>
 
 Date Opponent Event Legs_You Legs_Opp Your_3Dart_Avg
 
-2025-09-20 Jack Daffin Div 4 Fall 3 6 35.29
+2025-09-20 Sam Rivera Div 4 Fall 3 6 35.29
 
-2025-09-27 Dawid Kopelciw Div 4 Fall 4 6 35.42"></textarea>
+2025-09-27 Pat Nguyen Div 4 Fall 4 6 35.42"></textarea>
 <div class="err" id="err"></div>
 <details class="legs-paste-details">
 <summary>+ Optional: also add leg-by-leg data (unlocks Career tab &amp; match detail)</summary>
@@ -1413,7 +1413,7 @@ handleFiles(e.dataTransfer.files);
 });
 /* ---------- demo data ---------- */
 $('demoBtn').addEventListener('click', ()=>{
-const opps = ['Jack Daffin','Tony Bennett','Alex Boag-Munro','Wayne Green','Kevin Newman'];
+const opps = ['Sam Rivera','Pat Nguyen','Jordan Blake','Casey Morgan','Riley Chen'];
 const events = ['Div 4 Fall','Dev #16','Dev #17','Div 4 Spring'];
 let lines = ['Date,Opponent,Event,Legs_You,Legs_Opp,Your_3Dart_Avg,Your_First9,Your_Checkout%'];
 let day = new Date('2025-01-08');
@@ -1421,7 +1421,7 @@ let seed = 7;
 const rnd = ()=>{ seed=(seed*9301+49297)%233280; return seed/233280; };
 for(let i=0;i<46;i++){
 const opp = opps[Math.floor(rnd()*opps.length)];
-const base = {'Jack Daffin':33,'Tony Bennett':40,'Alex Boag-Munro':37,'Wayne Green':35,'Kevin Newman':42}[opp];
+const base = {'Sam Rivera':33,'Pat Nguyen':40,'Jordan Blake':37,'Casey Morgan':35,'Riley Chen':42}[opp];
 const avg = (base + (rnd()*6-3) + i*0.06).toFixed(2);
 const first9 = (parseFloat(avg)+ (rnd()*8) ).toFixed(2);
 const co = (rnd()*22+ (parseFloat(avg)-33) ).toFixed(1);
