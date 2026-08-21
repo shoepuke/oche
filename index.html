@@ -10,911 +10,1429 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-  :root{
-    --board:#14171a;       /* chalkboard / board surround */
-    --panel:#1c2024;       /* raised slab */
-    --panel-2:#23282d;
-    --chalk:#ece7da;       /* warm chalk white */
-    --dim:#929a9c;         /* muted text */
-    --wire:#363c41;        /* spider wire / dividers */
-    --green:#2f9e5f;       /* win  (board double/treble green) */
-    --red:#d23b32;         /* loss (board red) */
-    --gold:#e0b13c;        /* draw + the "score" accent (brass) */
-    --cream:#e8dcc0;       /* board cream wedge */
-    --radius:10px;
-    --maxw:1080px;
-  }
-  *{box-sizing:border-box}
-  html,body{margin:0;padding:0}
-  body{
-    background:
-      radial-gradient(1200px 600px at 50% -10%, #1d2227 0%, var(--board) 60%);
-    color:var(--chalk);
-    font-family:'Inter',system-ui,-apple-system,sans-serif;
-    font-size:15px; line-height:1.5;
-    min-height:100vh;
-    -webkit-font-smoothing:antialiased;
-  }
-  .wrap{max-width:var(--maxw);margin:0 auto;padding:24px 20px 64px}
-
-  /* ---------- header ---------- */
-  .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-       border-bottom:1px solid var(--wire);padding-bottom:18px;margin-bottom:22px}
-  .mark{flex:0 0 auto}
-  .brand{display:flex;flex-direction:column;line-height:1}
-  .brand h1{font-family:'Barlow Condensed',Arial Narrow,sans-serif;
-            font-weight:700;letter-spacing:.14em;font-size:34px;margin:0;color:var(--chalk)}
-  .brand .sub{color:var(--dim);font-size:12px;letter-spacing:.22em;
-              text-transform:uppercase;margin-top:3px}
-  .top-right{margin-left:auto;display:flex;align-items:center;gap:10px}
-  .pill{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.06em;
-        font-size:14px;color:var(--cream);background:var(--panel);
-        border:1px solid var(--wire);border-radius:999px;padding:6px 14px;white-space:nowrap}
-  .btn{font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;
-       color:var(--chalk);background:var(--panel);border:1px solid var(--wire);
-       border-radius:8px;padding:7px 13px;transition:border-color .15s,background .15s}
-  .btn:hover{border-color:var(--gold);background:var(--panel-2)}
-  .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-
-  /* ---------- loader / intro ---------- */
-  .intro{max-width:680px;margin:6vh auto 0;text-align:center}
-  .intro .lead{color:var(--dim);font-size:15px;margin:0 0 26px}
-  .intro .lead b{color:var(--chalk);font-weight:600}
-  .drop{border:1.5px dashed var(--wire);border-radius:14px;background:var(--panel);
-        padding:34px 24px;transition:border-color .15s,background .15s}
-  .drop.drag{border-color:var(--gold);background:var(--panel-2)}
-  .drop h2{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.04em;
-           font-size:22px;margin:0 0 6px}
-  .drop p{color:var(--dim);font-size:13px;margin:0 0 18px}
-  .drop-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-  .btn-primary{background:var(--gold);color:#1a1407;border-color:var(--gold);font-weight:600}
-  .btn-primary:hover{background:#edc257;border-color:#edc257}
-  textarea.paste{width:100%;min-height:120px;margin-top:16px;resize:vertical;
-        background:var(--board);color:var(--chalk);border:1px solid var(--wire);
-        border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;
-        font-size:12.5px;line-height:1.45}
-  textarea.paste::placeholder{color:#5c6468}
-  textarea.paste:focus{outline:none;border-color:var(--gold)}
-  .err{color:var(--red);font-size:13px;margin-top:14px;min-height:18px}
-  .hint-cols{color:var(--dim);font-size:12px;margin-top:18px;line-height:1.6}
-  .hint-cols code{color:var(--cream);background:var(--board);padding:1px 6px;border-radius:5px;
-        font-family:ui-monospace,monospace;font-size:11.5px}
-
-  /* ---------- controls ---------- */
-  .controls{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:22px}
-  .field{display:flex;flex-direction:column;gap:6px}
-  .field label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
-  select{appearance:none;background:var(--panel);color:var(--chalk);border:1px solid var(--wire);
-    border-radius:8px;padding:9px 34px 9px 12px;font-family:'Inter',sans-serif;font-size:14px;
-    cursor:pointer;min-width:200px;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23929a9c' d='M6 8 0 0h12z'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:right 12px center}
-  select:focus{outline:none;border-color:var(--gold)}
-  .field.grow select{min-width:240px}
-  .seg{display:inline-flex;background:var(--panel);border:1px solid var(--wire);
-       border-radius:8px;padding:3px;gap:2px}
-  .seg button{font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;
-       color:var(--dim);background:transparent;border:none;border-radius:6px;
-       padding:7px 16px;transition:color .15s,background .15s;letter-spacing:.02em}
-  .seg button:hover{color:var(--chalk)}
-  .seg button[aria-pressed="true"]{background:var(--gold);color:#1a1407;font-weight:600}
-  .seg button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-
-  /* ---------- scoreboard slab (signature) ---------- */
-  .slab{background:
-      linear-gradient(180deg,var(--panel-2),var(--panel));
-      border:1px solid var(--wire);border-radius:var(--radius);
-      padding:22px 24px;margin-bottom:18px;position:relative;overflow:hidden}
-  .slab::after{content:"";position:absolute;inset:0;pointer-events:none;
-      background:repeating-linear-gradient(90deg,transparent 0 7px,rgba(255,255,255,.012) 7px 8px)}
-  .vs-row{display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap;
-          position:relative;z-index:1}
-  .side{display:flex;flex-direction:column;align-items:center;min-width:120px}
-  .side .who{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);
-             margin-bottom:2px;max-width:200px;text-align:center;overflow:hidden;
-             text-overflow:ellipsis;white-space:nowrap}
-  .side .who.opp{color:var(--cream)}
-  .side .legs{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:72px;
-              line-height:.9;color:var(--chalk);font-variant-numeric:tabular-nums}
-  .side .legs.win{color:var(--green)}
-  .side .legs.loss{color:var(--red)}
-  .vs{font-family:'Barlow Condensed',sans-serif;font-weight:500;font-size:24px;color:var(--dim);
-      letter-spacing:.1em;padding-top:14px}
-  .record-row{display:flex;align-items:center;justify-content:center;gap:28px;flex-wrap:wrap;
-              margin-top:18px;position:relative;z-index:1}
-  .rec{display:flex;align-items:baseline;gap:7px}
-  .rec b{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;
-         font-variant-numeric:tabular-nums}
-  .rec span{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
-  .rec.w b{color:var(--green)} .rec.l b{color:var(--red)} .rec.d b{color:var(--gold)}
-  .form{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  .form .lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-right:2px}
-  .pip{width:18px;height:18px;border-radius:50%;flex:0 0 auto;
-       font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;
-       display:flex;align-items:center;justify-content:center;color:#10130f}
-  .pip.W{background:var(--green)} .pip.L{background:var(--red)} .pip.D{background:var(--gold)}
-
-  /* ---------- stat cards ---------- */
-  .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
-  .card{background:var(--panel);border:1px solid var(--wire);border-radius:var(--radius);
-        padding:16px 18px}
-  .card .k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
-  .card .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:38px;line-height:1;
-           margin-top:8px;color:var(--gold);font-variant-numeric:tabular-nums}
-  .card .v.plain{color:var(--chalk)}
-  .card .delta{font-size:12px;margin-top:6px;color:var(--dim);font-variant-numeric:tabular-nums}
-  .card .delta.up{color:var(--green)} .card .delta.down{color:var(--red)}
-
-  /* ---------- chart ---------- */
-  .panel-block{background:var(--panel);border:1px solid var(--wire);border-radius:var(--radius);
-        padding:18px 20px 14px;margin-bottom:20px}
-  .panel-block h3{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.04em;
-        font-size:18px;margin:0 0 4px;color:var(--chalk)}
-  .panel-block .csub{color:var(--dim);font-size:12.5px;margin:0 0 14px}
-  .chart-box{position:relative;height:300px}
-  .empty-note{color:var(--dim);font-size:13px;padding:30px 0;text-align:center}
-
-  /* ---------- meetings + leaderboard tables ---------- */
-  table{width:100%;border-collapse:collapse;font-size:13.5px}
-  th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);
-     text-align:left;font-weight:600;padding:9px 12px;border-bottom:1px solid var(--wire)}
-  th.sortable{cursor:pointer;user-select:none;transition:color .12s;white-space:nowrap}
-  th.sortable:hover{color:var(--chalk)}
-  th.sortable.active{color:var(--gold)}
-  th .arrow{font-size:9px;margin-left:4px;display:inline-block;width:8px}
-  td{padding:9px 12px;border-bottom:1px solid rgba(54,60,65,.5)}
-  tbody tr:last-child td{border-bottom:none}
-  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-  .tag{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
-       border-radius:5px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;color:#10130f}
-  .tag.W{background:var(--green)} .tag.L{background:var(--red)} .tag.D{background:var(--gold)}
-  tr.clickable{cursor:pointer}
-  tr.clickable:hover td{background:var(--panel-2)}
-  .oppname{color:var(--chalk);font-weight:500}
-  @keyframes meetflash{0%{background:rgba(224,177,60,.32)}100%{background:transparent}}
-  #meetTable tbody tr.meet-hl td{animation:meetflash 2.2s ease-out}
-  #meetTable tbody tr.meet-hl td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
-  @media (prefers-reduced-motion:reduce){#meetTable tbody tr.meet-hl td{animation:none;background:rgba(224,177,60,.16)}}
-
-  .hidden{display:none!important}
-  @media (max-width:720px){
-    .cards{grid-template-columns:repeat(2,1fr)}
-    .side .legs{font-size:56px}
-    .brand h1{font-size:28px}
-  }
-  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+:root{
+--board:#14171a; /* chalkboard / board surround */
+--panel:#1c2024; /* raised slab */
+--panel-2:#23282d;
+--chalk:#ece7da; /* warm chalk white */
+--dim:#929a9c; /* muted text */
+--wire:#363c41; /* spider wire / dividers */
+--green:#2f9e5f; /* win (board double/treble green) */
+--red:#d23b32; /* loss (board red) */
+--gold:#e0b13c; /* draw + the "score" accent (brass) */
+--cream:#e8dcc0; /* board cream wedge */
+--radius:10px;
+--maxw:1080px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+background:
+radial-gradient(1200px 600px at 50% -10%, #1d2227 0%, var(--board) 60%);
+color:var(--chalk);
+font-family:'Inter',system-ui,-apple-system,sans-serif;
+font-size:15px; line-height:1.5;
+min-height:100vh;
+-webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:var(--maxw);margin:0 auto;padding:24px 20px 64px}
+/* ---------- header ---------- */
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+border-bottom:1px solid var(--wire);padding-bottom:18px;margin-bottom:22px}
+.mark{flex:0 0 auto}
+.brand{display:flex;flex-direction:column;line-height:1}
+.brand h1{font-family:'Barlow Condensed',Arial Narrow,sans-serif;
+font-weight:700;letter-spacing:.14em;font-size:34px;margin:0;color:var(--chalk)}
+.brand .sub{color:var(--dim);font-size:12px;letter-spacing:.22em;
+text-transform:uppercase;margin-top:3px}
+.top-right{margin-left:auto;display:flex;align-items:center;gap:10px}
+.pill{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.06em;
+font-size:14px;color:var(--cream);background:var(--panel);
+border:1px solid var(--wire);border-radius:999px;padding:6px 14px;white-space:nowrap}
+.btn{font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;
+color:var(--chalk);background:var(--panel);border:1px solid var(--wire);
+border-radius:8px;padding:7px 13px;transition:border-color .15s,background .15s}
+.btn:hover{border-color:var(--gold);background:var(--panel-2)}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* ---------- loader / intro ---------- */
+.intro{max-width:680px;margin:6vh auto 0;text-align:center}
+.intro .lead{color:var(--dim);font-size:15px;margin:0 0 26px}
+.intro .lead b{color:var(--chalk);font-weight:600}
+.drop{border:1.5px dashed var(--wire);border-radius:14px;background:var(--panel);
+padding:34px 24px;transition:border-color .15s,background .15s}
+.drop.drag{border-color:var(--gold);background:var(--panel-2)}
+.drop h2{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.04em;
+font-size:22px;margin:0 0 6px}
+.drop p{color:var(--dim);font-size:13px;margin:0 0 18px}
+.get-data-hint{background:var(--board);border:1px solid var(--wire);border-radius:8px;
+padding:10px 14px;font-size:13px!important;margin-bottom:16px!important}
+.get-data-hint a{color:var(--gold);text-decoration:none;font-weight:500}
+.get-data-hint a:hover{text-decoration:underline}
+.drop-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn-primary{background:var(--gold);color:#1a1407;border-color:var(--gold);font-weight:600}
+.btn-primary:hover{background:#edc257;border-color:#edc257}
+textarea.paste{width:100%;min-height:120px;margin-top:16px;resize:vertical;
+background:var(--board);color:var(--chalk);border:1px solid var(--wire);
+border-radius:10px;padding:12px;font-family:ui-monospace,Menlo,Consolas,monospace;
+font-size:12.5px;line-height:1.45}
+textarea.paste::placeholder{color:#5c6468}
+textarea.paste:focus{outline:none;border-color:var(--gold)}
+.legs-paste-details{margin-top:14px;border:1px solid var(--wire);border-radius:8px;padding:10px 14px}
+.legs-paste-details summary{cursor:pointer;color:var(--dim);font-size:13px;user-select:none}
+.legs-paste-details summary:hover{color:var(--chalk)}
+.legs-paste-details textarea{margin-top:10px;min-height:80px}
+.err{color:var(--red);font-size:13px;margin-top:14px;min-height:18px}
+.hint-cols{color:var(--dim);font-size:12px;margin-top:18px;line-height:1.6}
+.hint-cols code{color:var(--cream);background:var(--board);padding:1px 6px;border-radius:5px;
+font-family:ui-monospace,monospace;font-size:11.5px}
+/* ---------- controls ---------- */
+.controls{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:22px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+select{appearance:none;background:var(--panel);color:var(--chalk);border:1px solid var(--wire);
+border-radius:8px;padding:9px 34px 9px 12px;font-family:'Inter',sans-serif;font-size:14px;
+cursor:pointer;min-width:200px;
+background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23929a9c' d='M6 8 0 0h12z'/%3E%3C/svg%3E");
+background-repeat:no-repeat;background-position:right 12px center}
+select:focus{outline:none;border-color:var(--gold)}
+.field.grow select{min-width:240px}
+.seg{display:inline-flex;background:var(--panel);border:1px solid var(--wire);
+border-radius:8px;padding:3px;gap:2px}
+.seg button{font-family:'Inter',sans-serif;font-size:13px;font-weight:500;cursor:pointer;
+color:var(--dim);background:transparent;border:none;border-radius:6px;
+padding:7px 16px;transition:color .15s,background .15s;letter-spacing:.02em}
+.seg button:hover{color:var(--chalk)}
+.seg button[aria-pressed="true"]{background:var(--gold);color:#1a1407;font-weight:600}
+.seg button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+/* ---------- scoreboard slab (signature) ---------- */
+.slab{background:
+linear-gradient(180deg,var(--panel-2),var(--panel));
+border:1px solid var(--wire);border-radius:var(--radius);
+padding:22px 24px;margin-bottom:18px;position:relative;overflow:hidden}
+.slab::after{content:"";position:absolute;inset:0;pointer-events:none;
+background:repeating-linear-gradient(90deg,transparent 0 7px,rgba(255,255,255,.012) 7px 8px)}
+.vs-row{display:flex;align-items:center;justify-content:center;gap:22px;flex-wrap:wrap;
+position:relative;z-index:1}
+.side{display:flex;flex-direction:column;align-items:center;min-width:120px}
+.side .who{font-size:12px;letter-spacing:.2em;text-transform:uppercase;color:var(--dim);
+margin-bottom:2px;max-width:200px;text-align:center;overflow:hidden;
+text-overflow:ellipsis;white-space:nowrap}
+.side .who.opp{color:var(--cream)}
+.side .legs{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:72px;
+line-height:.9;color:var(--chalk);font-variant-numeric:tabular-nums}
+.side .legs.win{color:var(--green)}
+.side .legs.loss{color:var(--red)}
+.vs{font-family:'Barlow Condensed',sans-serif;font-weight:500;font-size:24px;color:var(--dim);
+letter-spacing:.1em;padding-top:14px}
+.record-row{display:flex;align-items:center;justify-content:center;gap:28px;flex-wrap:wrap;
+margin-top:18px;position:relative;z-index:1}
+.rec{display:flex;align-items:baseline;gap:7px}
+.rec b{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:26px;
+font-variant-numeric:tabular-nums}
+.rec span{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.rec.w b{color:var(--green)} .rec.l b{color:var(--red)} .rec.d b{color:var(--gold)}
+.form{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.form .lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-right:2px}
+.pip{width:18px;height:18px;border-radius:50%;flex:0 0 auto;
+font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:11px;
+display:flex;align-items:center;justify-content:center;color:#10130f}
+.pip.W{background:var(--green)} .pip.L{background:var(--red)} .pip.D{background:var(--gold)}
+/* ---------- stat cards ---------- */
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px}
+.card{background:var(--panel);border:1px solid var(--wire);border-radius:var(--radius);
+padding:16px 18px}
+.card .k{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.card .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:38px;line-height:1;
+margin-top:8px;color:var(--gold);font-variant-numeric:tabular-nums}
+.card .v.plain{color:var(--chalk)}
+.card .delta{font-size:12px;margin-top:6px;color:var(--dim);font-variant-numeric:tabular-nums}
+.card .delta.up{color:var(--green)} .card .delta.down{color:var(--red)}
+/* ---------- chart ---------- */
+.panel-block{background:var(--panel);border:1px solid var(--wire);border-radius:var(--radius);
+padding:18px 20px 14px;margin-bottom:20px}
+.panel-block h3{font-family:'Barlow Condensed',sans-serif;font-weight:600;letter-spacing:.04em;
+font-size:18px;margin:0 0 4px;color:var(--chalk)}
+.panel-block .csub{color:var(--dim);font-size:12.5px;margin:0 0 14px}
+.chart-box{position:relative;height:300px}
+.empty-note{color:var(--dim);font-size:13px;padding:30px 0;text-align:center}
+/* ---------- meetings + leaderboard tables ---------- */
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);
+text-align:left;font-weight:600;padding:9px 12px;border-bottom:1px solid var(--wire)}
+th.sortable{cursor:pointer;user-select:none;transition:color .12s;white-space:nowrap}
+th.sortable:hover{color:var(--chalk)}
+th.sortable.active{color:var(--gold)}
+th .arrow{font-size:9px;margin-left:4px;display:inline-block;width:8px}
+td{padding:9px 12px;border-bottom:1px solid rgba(54,60,65,.5)}
+tbody tr:last-child td{border-bottom:none}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tag{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;
+border-radius:5px;font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:12px;color:#10130f}
+.tag.W{background:var(--green)} .tag.L{background:var(--red)} .tag.D{background:var(--gold)}
+tr.clickable{cursor:pointer}
+tr.clickable:hover td{background:var(--panel-2)}
+.oppname{color:var(--chalk);font-weight:500}
+@keyframes meetflash{0%{background:rgba(224,177,60,.32)}100%{background:transparent}}
+#meetTable tbody tr.meet-hl td{animation:meetflash 2.2s ease-out}
+#meetTable tbody tr.meet-hl td:first-child{box-shadow:inset 3px 0 0 var(--gold)}
+@media (prefers-reduced-motion:reduce){#meetTable tbody tr.meet-hl td{animation:none;background:rgba(224,177,60,.16)}}
+.hidden{display:none!important}
+/* ---------- career stats page ---------- */
+.callout{font-size:13px;color:var(--dim);margin:10px 0 4px}
+.callout b{color:var(--gold);font-weight:700;font-variant-numeric:tabular-nums}
+.subgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media (max-width:720px){.subgrid{grid-template-columns:1fr}}
+/* ---------- range controls (zoomable trend) ---------- */
+.panel-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+flex-wrap:wrap;margin-bottom:12px}
+.panel-head-row h3{margin-bottom:4px}
+.panel-head-row .csub{margin-bottom:0}
+.mini-stat{display:inline-flex;align-items:baseline;gap:9px;background:var(--panel-2);
+border:1px solid var(--wire);border-radius:8px;padding:8px 14px;flex:0 0 auto}
+.mini-stat .k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.mini-stat .v{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:20px;
+color:var(--gold);font-variant-numeric:tabular-nums}
+.rangebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.rangebar .seg{padding:2px}
+.rangebar .seg button{padding:5px 12px;font-size:12px}
+.rangenav{display:inline-flex;align-items:center;gap:6px;margin-left:auto}
+.rangenav button{width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;
+font-size:15px;line-height:1}
+.rangenav button:disabled{opacity:.35;cursor:default}
+.rangenav button:disabled:hover{border-color:var(--wire);background:var(--panel)}
+.rangelabel{font-size:12px;color:var(--dim);min-width:150px;text-align:center;white-space:nowrap}
+/* ---------- match detail modal ---------- */
+.modal-backdrop{position:fixed;inset:0;background:rgba(10,12,14,.72);z-index:100;
+display:flex;align-items:center;justify-content:center;padding:20px}
+.modal-box{background:var(--panel);border:1px solid var(--wire);border-radius:var(--radius);
+max-width:560px;width:100%;max-height:86vh;overflow-y:auto;padding:22px 24px;position:relative}
+.modal-close{position:absolute;top:14px;right:14px;width:30px;height:30px;border-radius:8px;
+background:var(--panel-2);border:1px solid var(--wire);color:var(--dim);cursor:pointer;
+font-size:16px;display:flex;align-items:center;justify-content:center;transition:color .15s,border-color .15s}
+.modal-close:hover{color:var(--chalk);border-color:var(--gold)}
+.modal-title{font-family:'Barlow Condensed',sans-serif;font-weight:600;font-size:22px;margin:0 0 2px;
+color:var(--chalk);padding-right:36px}
+.modal-sub{color:var(--dim);font-size:13px;margin:0 0 16px}
+.modal-legs table{margin-top:4px}
+.modal-stats table{margin-top:2px}
+.modal-stats td:first-child,.modal-stats th:first-child{color:var(--dim);font-size:12px;
+letter-spacing:.04em}
+.modal-legs{margin-top:16px}
+#modalLegsToggle{margin-top:16px;font-size:12.5px;background:transparent;border-color:transparent;
+padding-left:0;color:var(--dim)}
+#modalLegsToggle:hover{color:var(--gold);border-color:transparent;background:transparent}
+.modal-link{display:inline-block;margin-top:16px;font-size:13px}
+@media (max-width:720px){
+.cards{grid-template-columns:repeat(2,1fr)}
+.side .legs{font-size:56px}
+.brand h1{font-size:28px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 <div class="wrap">
-
-  <!-- ===== HEADER ===== -->
-  <header class="top">
-    <span class="mark" aria-hidden="true">
-      <svg width="44" height="44" viewBox="0 0 44 44" fill="none">
-        <circle cx="22" cy="22" r="21" stroke="#363c41" stroke-width="2"/>
-        <circle cx="22" cy="22" r="15.5" fill="none" stroke="#363c41" stroke-width="1"/>
-        <path d="M22 6.5 A15.5 15.5 0 0 1 35.4 14.25 L22 22 Z" fill="#2f9e5f"/>
-        <path d="M35.4 29.75 A15.5 15.5 0 0 1 22 37.5 L22 22 Z" fill="#d23b32"/>
-        <path d="M8.6 29.75 A15.5 15.5 0 0 1 8.6 14.25 L22 22 Z" fill="#e8dcc0"/>
-        <circle cx="22" cy="22" r="5" fill="#14171a" stroke="#363c41"/>
-        <circle cx="22" cy="22" r="2.4" fill="#d23b32"/>
-      </svg>
-    </span>
-    <div class="brand">
-      <h1>OCHE</h1>
-      <span class="sub">Head-to-head &amp; form</span>
-    </div>
-    <div class="top-right hidden" id="topRight">
-      <span class="pill hidden" id="ownerPill">History</span>
-      <span class="pill" id="matchCount">0 matches</span>
-      <button class="btn btn-primary hidden" id="ownBtn">Analyze your own data</button>
-      <button class="btn hidden" id="backBtn">‹ back</button>
-      <button class="btn" id="resetBtn">Load different data</button>
-    </div>
-  </header>
-
-  <!-- ===== INTRO / LOADER ===== -->
-  <section class="intro" id="intro">
-    <button class="btn hidden" id="introBack" style="margin-bottom:18px">‹ Back to history</button>
-    <p class="lead">Drop in your darts log and explore how you stack up against every opponent —
-      your record, your three-dart average, and how your <b>form moves over time</b>.</p>
-    <div class="drop" id="drop">
-      <h2>Add your data</h2>
-      <p>Export your Google Sheet as CSV, or just copy the cells (including the header row) and paste below.</p>
-      <div class="drop-actions">
-        <button class="btn btn-primary" id="fileBtn">Choose CSV file</button>
-        <button class="btn" id="demoBtn">Try with demo data</button>
-        <input type="file" id="fileInput" accept=".csv,text/csv,text/plain" class="hidden">
-      </div>
-      <textarea class="paste" id="pasteArea" placeholder="…or paste your sheet here, e.g.
-
-Date	Opponent	Event	Legs_You	Legs_Opp	Your_3Dart_Avg
-2025-09-20	Jack Daffin	Div 4 Fall	3	6	35.29
-2025-09-27	Dawid Kopelciw	Div 4 Fall	4	6	35.42"></textarea>
-      <div class="err" id="err"></div>
-      <p class="hint-cols">Needs at minimum: <code>Date</code>, <code>Opponent</code>,
-        <code>Legs_You</code>, <code>Legs_Opp</code>.
-        Optional metrics like <code>Your_3Dart_Avg</code>, <code>Your_First9</code> and
-        checkout&nbsp;% unlock more charts.</p>
-    </div>
-  </section>
-
-  <!-- ===== DASHBOARD ===== -->
-  <section id="dash" class="hidden">
-    <div class="controls">
-      <div class="field">
-        <label>View</label>
-        <div class="seg" id="modeSeg" role="group" aria-label="Choose view">
-          <button id="modeOpp" aria-pressed="true">Opponents</button>
-          <button id="modeEvent" aria-pressed="false">Events</button>
-        </div>
-      </div>
-      <div class="field grow">
-        <label for="oppSelect" id="pickLabel">Opponent</label>
-        <select id="oppSelect"></select>
-      </div>
-      <div class="field">
-        <label for="metricSelect">Metric to track</label>
-        <select id="metricSelect"></select>
-      </div>
-    </div>
-
-    <div id="oppView" class="hidden">
-      <div class="slab">
-        <div class="vs-row">
-          <div class="side">
-            <div class="who">You</div>
-            <div class="legs" id="legsYou">0</div>
-          </div>
-          <div class="vs">vs</div>
-          <div class="side">
-            <div class="who opp" id="oppName">—</div>
-            <div class="legs" id="legsOpp">0</div>
-          </div>
-        </div>
-        <div class="record-row">
-          <div class="rec w"><b id="recW">0</b><span>Won</span></div>
-          <div class="rec l"><b id="recL">0</b><span>Lost</span></div>
-          <div class="rec d"><b id="recD">0</b><span>Drawn</span></div>
-          <div class="form"><span class="lbl">Form</span><span id="formPips"></span></div>
-        </div>
-      </div>
-
-      <div class="cards">
-        <div class="card"><div class="k">Matches</div><div class="v plain" id="cMatches">0</div></div>
-        <div class="card"><div class="k" id="cAvgLabel">Avg vs them</div><div class="v" id="cAvg">—</div>
-             <div class="delta" id="cAvgDelta"></div></div>
-        <div class="card"><div class="k">Best night</div><div class="v" id="cBest">—</div>
-             <div class="delta" id="cBestDate"></div></div>
-        <div class="card"><div class="k">Leg win %</div><div class="v plain" id="cLegPct">—</div>
-             <div class="delta" id="cLegSplit"></div></div>
-      </div>
-
-      <div class="panel-block">
-        <h3 id="trendTitle">Trend over time</h3>
-        <p class="csub" id="trendSub">Each meeting, oldest to newest. Dashed line is your overall average.</p>
-        <div class="chart-box"><canvas id="trendChart"></canvas></div>
-        <p class="empty-note hidden" id="trendEmpty">No numeric data for this metric against this opponent yet.</p>
-      </div>
-
-      <div class="panel-block">
-        <h3>Every meeting</h3>
-        <p class="csub">The full record, most recent first.</p>
-        <div style="overflow-x:auto">
-          <table id="meetTable">
-            <thead><tr>
-              <th>Date</th><th id="meetContextHead">Event</th><th class="num">Legs</th>
-              <th>Result</th><th class="num" id="meetMetricHead">3-dart avg</th>
-            </tr></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div id="overview" class="hidden">
-      <div class="cards">
-        <div class="card"><div class="k">Total matches</div><div class="v plain" id="oTotal">0</div></div>
-        <div class="card"><div class="k">Overall record</div><div class="v plain" id="oRecord" style="font-size:30px">0–0–0</div>
-             <div class="delta" id="oWinPct"></div></div>
-        <div class="card"><div class="k" id="oAvgLabel">Career average</div><div class="v" id="oAvg">—</div></div>
-        <div class="card"><div class="k" id="oCountLabel">Opponents faced</div><div class="v plain" id="oCount">0</div></div>
-      </div>
-      <div class="panel-block">
-        <h3 id="careerTitle">Career trend</h3>
-        <p class="csub" id="careerSub">Every match in order. The line tracks your career average as it evolved.</p>
-        <div class="chart-box"><canvas id="careerChart"></canvas></div>
-        <p class="empty-note hidden" id="careerEmpty">No data for this metric yet.</p>
-      </div>
-      <div class="panel-block">
-        <h3 id="overviewTitle">Opponents</h3>
-        <p class="csub" id="overviewSub">Sorted by matches played. Click any row to drill in.</p>
-        <div style="overflow-x:auto">
-          <table id="overviewTable">
-            <thead></thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  </section>
+<!-- ===== HEADER ===== -->
+<header class="top">
+<span class="mark" aria-hidden="true">
+<svg width="44" height="44" viewBox="0 0 44 44" fill="none">
+<circle cx="22" cy="22" r="21" stroke="#363c41" stroke-width="2"/>
+<circle cx="22" cy="22" r="15.5" fill="none" stroke="#363c41" stroke-width="1"/>
+<path d="M22 6.5 A15.5 15.5 0 0 1 35.4 14.25 L22 22 Z" fill="#2f9e5f"/>
+<path d="M35.4 29.75 A15.5 15.5 0 0 1 22 37.5 L22 22 Z" fill="#d23b32"/>
+<path d="M8.6 29.75 A15.5 15.5 0 0 1 8.6 14.25 L22 22 Z" fill="#e8dcc0"/>
+<circle cx="22" cy="22" r="5" fill="#14171a" stroke="#363c41"/>
+<circle cx="22" cy="22" r="2.4" fill="#d23b32"/>
+</svg>
+</span>
+<div class="brand">
+<h1>OCHE</h1>
+<span class="sub">Head-to-head &amp; form</span>
 </div>
+<div class="top-right hidden" id="topRight">
+<span class="pill hidden" id="ownerPill">History</span>
+<span class="pill" id="matchCount">0 matches</span>
+<button class="btn btn-primary hidden" id="ownBtn">Analyze your own data</button>
+<button class="btn hidden" id="backBtn">‹ back</button>
+<button class="btn" id="resetBtn">Load different data</button>
+</div>
+</header>
+<!-- ===== INTRO / LOADER ===== -->
+<section class="intro" id="intro">
+<button class="btn hidden" id="introBack" style="margin-bottom:18px">‹ Back to history</button>
+<p class="lead">See how you stack up against every opponent — your record, your
+three-dart average, checkout stats, and how your <b>form moves over time</b>.</p>
+<div class="drop" id="drop">
+<h2>Analyze your own data</h2>
+<p>Playing darts on n01darts.com (nakka)? Download the tool below — it pulls your
+match history, saves everything locally, and builds you a personal stats page you
+can open anytime, completely offline. No uploading, no pasting, just double-click
+and go. First run asks two quick questions (your name and your n01 "gid"); every
+run after that is silent and just updates what's new.</p>
+<div class="drop-actions">
+<a class="btn btn-primary" id="downloadToolBtn" href="./oche_sync.zip" download>⬇ Download the tool (.zip)</a>
+<button class="btn" id="demoBtn">Try with demo data</button>
+</div>
+<p class="hint-cols">Includes a README with full setup instructions right inside the zip
+(<a href="./oche_sync_readme.md" target="_blank" rel="noopener">or read it here first</a>).</p>
 
+<details class="legs-paste-details" id="manualUploadDetails">
+<summary>Already have <code>data.csv</code> (and <code>legs.csv</code>)? Upload or paste them instead ›</summary>
+<div class="drop-actions" style="margin-top:14px">
+<button class="btn" id="fileBtn">Choose CSV file(s)</button>
+<input type="file" id="fileInput" accept=".csv,text/csv,text/plain" multiple class="hidden">
+</div>
+<textarea class="paste" id="pasteArea" placeholder="…or paste your sheet here, e.g.
+
+Date Opponent Event Legs_You Legs_Opp Your_3Dart_Avg
+
+2025-09-20 Jack Daffin Div 4 Fall 3 6 35.29
+
+2025-09-27 Dawid Kopelciw Div 4 Fall 4 6 35.42"></textarea>
+<div class="err" id="err"></div>
+<details class="legs-paste-details">
+<summary>+ Optional: also add leg-by-leg data (unlocks Career tab &amp; match detail)</summary>
+<textarea class="paste" id="legsPasteArea" placeholder="Paste your leg-by-leg CSV here (needs Mid, Leg, Player, Won columns at minimum -- Darts, CheckoutValue, StartScore unlock more)"></textarea>
+<button class="btn" id="legsPasteBtn" style="margin-top:10px">Add leg data</button>
+</details>
+<p class="hint-cols">Needs at minimum: <code>Date</code>, <code>Opponent</code>,
+<code>Legs_You</code>, <code>Legs_Opp</code>.
+Optional metrics like <code>Your_3Dart_Avg</code>, <code>Your_First9</code> and
+checkout&nbsp;% unlock more charts.</p>
+</details>
+</div>
+</section>
+<!-- ===== DASHBOARD ===== -->
+<section id="dash" class="hidden">
+<div class="controls">
+<div class="field">
+<label>View</label>
+<div class="seg" id="modeSeg" role="group" aria-label="Choose view">
+<button id="modeOpp" aria-pressed="true">Opponents</button>
+<button id="modeEvent" aria-pressed="false">Events</button>
+<button id="modeCareer" aria-pressed="false">Career</button>
+</div>
+</div>
+<div class="field grow" id="oppPickerField">
+<label for="oppSelect" id="pickLabel">Opponent</label>
+<select id="oppSelect"></select>
+</div>
+<div class="field" id="metricPickerField">
+<label for="metricSelect">Metric to track</label>
+<select id="metricSelect"></select>
+</div>
+</div>
+<div id="oppView" class="hidden">
+<div class="slab">
+<div class="vs-row">
+<div class="side">
+<div class="who">You</div>
+<div class="legs" id="legsYou">0</div>
+</div>
+<div class="vs">vs</div>
+<div class="side">
+<div class="who opp" id="oppName">—</div>
+<div class="legs" id="legsOpp">0</div>
+</div>
+</div>
+<div class="record-row">
+<div class="rec w"><b id="recW">0</b><span>Won</span></div>
+<div class="rec l"><b id="recL">0</b><span>Lost</span></div>
+<div class="rec d"><b id="recD">0</b><span>Drawn</span></div>
+<div class="form"><span class="lbl">Form</span><span id="formPips"></span></div>
+</div>
+</div>
+<div class="cards">
+<div class="card"><div class="k">Matches</div><div class="v plain" id="cMatches">0</div></div>
+<div class="card"><div class="k" id="cAvgLabel">Avg vs them</div><div class="v" id="cAvg">—</div>
+<div class="delta" id="cAvgDelta"></div></div>
+<div class="card"><div class="k">Best night</div><div class="v" id="cBest">—</div>
+<div class="delta" id="cBestDate"></div></div>
+<div class="card"><div class="k">Leg win %</div><div class="v plain" id="cLegPct">—</div>
+<div class="delta" id="cLegSplit"></div></div>
+</div>
+<div class="panel-block">
+<h3 id="trendTitle">Trend over time</h3>
+<p class="csub" id="trendSub">Each meeting, oldest to newest. Dashed line is your overall average.</p>
+<div class="rangebar" id="detailRangeBar"></div>
+<div class="chart-box"><canvas id="trendChart"></canvas></div>
+<p class="empty-note hidden" id="trendEmpty">No numeric data for this metric against this opponent yet.</p>
+</div>
+<div class="panel-block">
+<h3>Every meeting</h3>
+<p class="csub">The full record, most recent first.</p>
+<div style="overflow-x:auto">
+<table id="meetTable">
+<thead><tr>
+<th>Date</th><th id="meetContextHead">Event</th><th class="num">Legs</th>
+<th>Result</th><th class="num" id="meetMetricHead">3-dart avg</th>
+</tr></thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+</div>
+<div id="overview" class="hidden">
+<div class="cards">
+<div class="card"><div class="k">Total matches</div><div class="v plain" id="oTotal">0</div></div>
+<div class="card"><div class="k">Overall record</div><div class="v plain" id="oRecord" style="font-size:30px">0–0–0</div>
+<div class="delta" id="oWinPct"></div></div>
+<div class="card"><div class="k" id="oAvgLabel">Career average</div><div class="v" id="oAvg">—</div></div>
+<div class="card"><div class="k" id="oCountLabel">Opponents faced</div><div class="v plain" id="oCount">0</div></div>
+</div>
+<div class="panel-block">
+<h3 id="careerTitle">Career trend</h3>
+<p class="csub" id="careerSub">Every match in order. The line tracks your career average as it evolved.</p>
+<div class="rangebar" id="careerRangeBar"></div>
+<div class="chart-box"><canvas id="careerChart"></canvas></div>
+<p class="empty-note hidden" id="careerEmpty">No data for this metric yet.</p>
+</div>
+<div class="panel-block">
+<h3 id="overviewTitle">Opponents</h3>
+<p class="csub" id="overviewSub">Sorted by matches played. Click any row to drill in.</p>
+<div style="overflow-x:auto">
+<table id="overviewTable">
+<thead></thead>
+<tbody></tbody>
+</table>
+</div>
+</div>
+</div>
+<div id="careerStatsView" class="hidden">
+<div class="cards">
+<div class="card"><div class="k">High checkout</div><div class="v" id="kHighCheckout">—</div></div>
+<div class="card"><div class="k">Fewest darts (501 leg)</div><div class="v" id="kFewestDarts">—</div></div>
+<div class="card"><div class="k">Career 3-dart avg</div><div class="v" id="kCareerAvg">—</div></div>
+<div class="card"><div class="k">Career first 9 avg</div><div class="v" id="kCareerFirst9">—</div></div>
+</div>
+<div class="cards" style="grid-template-columns:1fr">
+<div class="card"><div class="k">Career checkout % estimate</div><div class="v" id="kCareerCheckout">—</div>
+<div class="delta" id="kCareerCheckoutSub"></div></div>
+</div>
+<div class="subgrid">
+<div class="panel-block">
+<h3>100+ checkouts</h3>
+<p class="csub">Every finish of 100 or more, by exact value.</p>
+<div class="chart-box" style="height:260px"><canvas id="checkoutBarChart"></canvas></div>
+<p class="empty-note hidden" id="checkoutBarEmpty">No 100+ checkouts recorded yet.</p>
+</div>
+<div class="panel-block">
+<div class="panel-head-row">
+<div>
+<h3>Legs won, by dart count</h3>
+<p class="csub" id="legsBarSub">How many darts your winning legs took.</p>
+</div>
+<div class="mini-stat" id="avgDartsBox"><span class="k">Avg darts/leg (this period)</span><span class="v" id="avgDartsValue">—</span></div>
+</div>
+<div class="rangebar" id="legsBarRangeBar"></div>
+<div class="chart-box" style="height:260px"><canvas id="legsBarChart"></canvas></div>
+<p class="callout hidden" id="under30Callout"></p>
+<p class="empty-note hidden" id="legsBarEmpty">No completed leg data yet -- this needs legs.csv.</p>
+</div>
+</div>
+</div>
+</section>
+</div>
+<div class="modal-backdrop hidden" id="matchModal">
+<div class="modal-box">
+<button class="modal-close" id="modalClose" aria-label="Close">✕</button>
+<h3 class="modal-title" id="modalTitle">—</h3>
+<p class="modal-sub" id="modalSub"></p>
+<div class="modal-stats">
+<table id="modalStatsTable">
+<thead><tr><th></th><th class="num">You</th><th class="num" id="modalStatsOppHead">Opponent</th></tr></thead>
+<tbody></tbody>
+</table>
+<p class="empty-note hidden" id="modalStatsEmpty">Detailed match stats aren't available for this match (needs a full pull, not --summary-only -- older matches from before this feature will also be blank).</p>
+</div>
+<button class="btn modal-link" id="modalLegsToggle">Show leg-by-leg breakdown ›</button>
+<div class="modal-legs hidden" id="modalLegsWrap">
+<table id="modalLegsTable">
+<thead><tr><th>Leg</th><th>Winner</th><th class="num">Darts</th><th class="num">Checkout</th></tr></thead>
+<tbody></tbody>
+</table>
+<p class="empty-note hidden" id="modalEmpty">Leg-by-leg detail isn't available for this match (no legs.csv, or this match predates it).</p>
+</div>
+<a href="#" class="btn modal-link" id="modalOppLink">View head-to-head vs this opponent ›</a>
+</div>
+</div>
 <script>
 "use strict";
-
 /* =====================================================================
-   ░░  PUBLISH YOUR OWN HISTORY  ░░
-
-   This build reads your match history from an external file: data.csv,
-   sitting next to this HTML. After each match you ONLY edit data.csv —
-   never this file. Update loop:
-     1. Open your Google Sheet, select the cells INCLUDING the header row.
-     2. Copy, paste into data.csv (replacing its contents), save.
-     3. Upload data.csv to your host. Done.
-
-   • To ship the plain tool with NO baked-in history (pure "bring your
-     own data" mode), just don't deploy a data.csv — visitors get the
-     uploader instead.
-   • DATA_URL is the path to that file. EMBEDDED_CSV below is only a
-     fallback used when data.csv can't be fetched (e.g. opening this
-     file directly via file://). Leaving it empty is fine; to preview
-     locally, run a tiny web server in this folder instead, e.g.:
-         python3 -m http.server
-     then visit http://localhost:8000/
-   ===================================================================== */
-const OWNER_NAME   = "Craig";
-const DATA_URL     = "./data.csv";   // live source, edited after each match
-const EMBEDDED_CSV = ``;             // optional offline fallback (normally empty)
-let OWNER_DATA = "";   // resolved at boot from DATA_URL or EMBEDDED_CSV
-
+░░ PUBLISH YOUR OWN HISTORY ░░
+This build reads your match history from an external file: data.csv,
+sitting next to this HTML. After each match you ONLY edit data.csv —
+never this file. Update loop:
+1. Open your Google Sheet, select the cells INCLUDING the header row.
+2. Copy, paste into data.csv (replacing its contents), save.
+3. Upload data.csv to your host. Done.
+• To ship the plain tool with NO baked-in history (pure "bring your
+own data" mode), just don't deploy a data.csv — visitors get the
+uploader instead.
+• DATA_URL is the path to that file. EMBEDDED_CSV below is only a
+fallback used when data.csv can't be fetched (e.g. opening this
+file directly via file://). Leaving it empty is fine; to preview
+locally, run a tiny web server in this folder instead, e.g.:
+python3 -m http.server
+then visit http://localhost:8000/
+===================================================================== */
+const OWNER_NAME = "Craig";
+const DATA_URL = "./data.csv"; // live source, edited after each match
+const LEGS_URL = "./legs.csv"; // companion leg-level file (match detail, career bar charts)
+const EMBEDDED_CSV = ``; // optional offline fallback (normally empty)
+const LEGS_EMBEDDED = ``; // optional offline fallback for legs.csv (normally empty)
+let OWNER_DATA = ""; // resolved at boot from DATA_URL or EMBEDDED_CSV
+let OWNER_LEGS = ""; // resolved at boot from LEGS_URL or LEGS_EMBEDDED
 const $ = id => document.getElementById(id);
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-const state = { rows: [], cols: {}, metrics: [], metric: null, mode:'opp', opp: 'ALL', event:'ALL', sort:{key:'p',dir:'desc'}, showcase:false };
+const state = {
+rows: [], cols: {}, metrics: [], metric: null, mode:'opp', opp: 'ALL', event:'ALL',
+sort:{key:'p',dir:'desc'}, showcase:false,
+legs: [], legsByMid: {},
+detailRange: {preset:'all', anchor:null},
+careerRange: {preset:'all', anchor:null},
+legsRange: {preset:'all', anchor:null},
+};
 let chart = null;
 let overviewList = [];
 let overviewCols = [];
-
+let checkoutBarChart = null;
+let legsBarChart = null;
 /* ---------- column detection ---------- */
 const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
 function detectColumns(headers){
-  const c = {};
-  headers.forEach(h=>{
-    const n = norm(h);
-    if(!c.date && n.includes('date')) c.date = h;
-    if(!c.opponent && n.includes('opponent')) c.opponent = h;
-    if(!c.legsYou && n.includes('legs') && (n.includes('you')||n.includes('mine')||n.includes('self'))) c.legsYou = h;
-    if(!c.legsOpp && n.includes('legs') && n.includes('opp')) c.legsOpp = h;
-  });
-  return c;
+const c = {};
+headers.forEach(h=>{
+const n = norm(h);
+if(!c.date && n.includes('date')) c.date = h;
+if(!c.opponent && n.includes('opponent')) c.opponent = h;
+if(!c.legsYou && n.includes('legs') && (n.includes('you')||n.includes('mine')||n.includes('self'))) c.legsYou = h;
+if(!c.legsOpp && n.includes('legs') && n.includes('opp')) c.legsOpp = h;
+if(!c.mid && n==='mid') c.mid = h;
+if(!c.checkoutMakes && n.includes('checkout') && n.includes('makes')) c.checkoutMakes = h;
+if(!c.checkoutAttempts && n.includes('checkout') && n.includes('attempts')) c.checkoutAttempts = h;
+});
+return c;
 }
 // Candidate per-match numeric metrics, matched loosely against headers.
 const METRIC_DEFS = [
-  {key:'avg',     label:'3-dart average', test:n=>n.includes('3dart')&&n.includes('avg')},
-  {key:'first9',  label:'First 9 average', test:n=>n.includes('first9')},
-  {key:'checkout',label:'Checkout %',      test:n=>n.includes('checkout')&&(n.includes('pct')||n.includes('percent')||true)&&!n.includes('attempt')},
+{key:'avg', label:'3-dart average', test:n=>n.includes('3dart')&&n.includes('avg')},
+{key:'first9', label:'First 9 average', test:n=>n.includes('first9')},
+{key:'checkout',label:'Checkout %', test:n=>n.includes('checkout')&&!n.includes('attempt')&&!n.includes('makes')&&(n.includes('pct')||n.includes('percent')||true)},
+{key:'highfinish', label:'High finish', test:n=>n.includes('highfinish')||(n.includes('high')&&n.includes('finish'))},
 ];
 function detectMetrics(headers){
-  const out=[];
-  METRIC_DEFS.forEach(def=>{
-    const h = headers.find(x=>def.test(norm(x)));
-    if(h) out.push({...def, header:h});
-  });
-  return out;
+const out=[];
+METRIC_DEFS.forEach(def=>{
+const h = headers.find(x=>def.test(norm(x)));
+if(h) out.push({...def, header:h});
+});
+return out;
 }
 const toNum = v => {
-  if(v===null||v===undefined) return null;
-  const s = String(v).replace(/[%,\s]/g,'');
-  if(s==='') return null;
-  const f = parseFloat(s);
-  return isNaN(f) ? null : f;
+if(v===null||v===undefined) return null;
+const s = String(v).replace(/[%,\s]/g,'');
+if(s==='') return null;
+const f = parseFloat(s);
+return isNaN(f) ? null : f;
 };
-
 /* ---------- ingest ---------- */
 function ingest(text){
-  const parsed = Papa.parse(text.trim(), {header:true, skipEmptyLines:true});
-  if(!parsed.data || !parsed.data.length) throw new Error("Couldn't find any rows. Make sure the header row is included.");
-  const headers = parsed.meta.fields || [];
-  const cols = detectColumns(headers);
-  const missing = ['date','opponent','legsYou','legsOpp'].filter(k=>!cols[k]);
-  if(missing.length){
-    const names = {date:'Date',opponent:'Opponent',legsYou:'Legs_You',legsOpp:'Legs_Opp'};
-    throw new Error("Missing column(s): "+missing.map(m=>names[m]).join(', ')+". Check your header names.");
-  }
-  const metrics = detectMetrics(headers);
-
-  const rows = [];
-  parsed.data.forEach(r=>{
-    const opp = (r[cols.opponent]||'').trim();
-    const ly = toNum(r[cols.legsYou]);
-    const lo = toNum(r[cols.legsOpp]);
-    const dateStr = (r[cols.date]||'').trim();
-    if(!opp || ly===null || lo===null || !dateStr) return;
-    let result = 'D';
-    if(ly>lo) result='W'; else if(ly<lo) result='L';
-    const m = {};
-    metrics.forEach(mt=> m[mt.key] = toNum(r[mt.header]));
-    const eventCol = headers.find(h=>norm(h)==='event');
-    rows.push({
-      date: dateStr,
-      dateObj: new Date(dateStr),
-      opponent: opp,
-      event: eventCol ? (r[eventCol]||'').trim() : '',
-      legsYou: ly, legsOpp: lo, result, m
-    });
-  });
-  if(!rows.length) throw new Error("Found the columns, but no rows had complete date / opponent / legs values.");
-  rows.sort((a,b)=> a.dateObj - b.dateObj);
-
-  state.rows = rows; state.cols = cols; state.metrics = metrics;
-  state.metric = metrics.length ? metrics[0].key : null;
-  state.opp = 'ALL';
-  buildUI();
+const parsed = Papa.parse(text.trim(), {header:true, skipEmptyLines:true});
+if(!parsed.data || !parsed.data.length) throw new Error("Couldn't find any rows. Make sure the header row is included.");
+const headers = parsed.meta.fields || [];
+const cols = detectColumns(headers);
+const missing = ['date','opponent','legsYou','legsOpp'].filter(k=>!cols[k]);
+if(missing.length){
+const names = {date:'Date',opponent:'Opponent',legsYou:'Legs_You',legsOpp:'Legs_Opp'};
+throw new Error("Missing column(s): "+missing.map(m=>names[m]).join(', ')+". Check your header names.");
+}
+const metrics = detectMetrics(headers);
+const rows = [];
+parsed.data.forEach(r=>{
+const opp = (r[cols.opponent]||'').trim();
+const ly = toNum(r[cols.legsYou]);
+const lo = toNum(r[cols.legsOpp]);
+const dateStr = (r[cols.date]||'').trim();
+if(!opp || ly===null || lo===null || !dateStr) return;
+let result = 'D';
+if(ly>lo) result='W'; else if(ly<lo) result='L';
+const m = {};
+metrics.forEach(mt=> m[mt.key] = toNum(r[mt.header]));
+const eventCol = headers.find(h=>norm(h)==='event');
+rows.push({
+date: dateStr,
+dateObj: new Date(dateStr),
+opponent: opp,
+event: eventCol ? (r[eventCol]||'').trim() : '',
+mid: cols.mid ? (r[cols.mid]||'').trim() : '',
+raw: r, // full parsed row, keyed by exact header name -- lets the match-detail modal read any column (e.g. Your_60_Plus) without needing bespoke detection for each one
+checkoutMakes: cols.checkoutMakes ? toNum(r[cols.checkoutMakes]) : null,
+checkoutAttempts: cols.checkoutAttempts ? toNum(r[cols.checkoutAttempts]) : null,
+legsYou: ly, legsOpp: lo, result, m
+});
+});
+if(!rows.length) throw new Error("Found the columns, but no rows had complete date / opponent / legs values.");
+rows.sort((a,b)=> a.dateObj - b.dateObj);
+state.rows = rows; state.cols = cols; state.metrics = metrics;
+state.metric = metrics.length ? metrics[0].key : null;
+state.opp = 'ALL';
+state.detailRange = {preset:'all', anchor:null};
+state.careerRange = {preset:'all', anchor:null};
+state.legsRange = {preset:'all', anchor:null};
+state.careerRange = {preset:'all', anchor:null};
+if(!state.showcase){
+// a visitor uploaded their own file -- don't keep showing the owner's leg data
+state.legs = []; state.legsByMid = {};
+}
+buildUI();
+}
+/* ---------- legs.csv ingest (optional companion file) ---------- */
+function ingestLegs(text){
+try{
+const parsed = Papa.parse(text.trim(), {header:true, skipEmptyLines:true});
+if(!parsed.data || !parsed.data.length) return;
+const headers = parsed.meta.fields || [];
+const find = frag => headers.find(h=>norm(h)===norm(frag));
+const cMid=find('Mid'), cLeg=find('Leg'), cPlayer=find('Player'), cWon=find('Won'),
+cDarts=find('Darts'), cCo=find('CheckoutValue'), cStart=find('StartScore'), cDate=find('Date');
+if(!cMid || !cLeg || !cPlayer || !cWon) return; // not a usable legs file
+const legs = [];
+parsed.data.forEach(r=>{
+const mid = (r[cMid]||'').trim();
+if(!mid) return;
+const dateStr = cDate ? (r[cDate]||'').trim() : '';
+legs.push({
+mid,
+leg: toNum(r[cLeg]),
+player: (r[cPlayer]||'').trim(), // "You" | "Opponent"
+won: String(r[cWon]).trim()==='1' || String(r[cWon]).trim().toLowerCase()==='true',
+darts: cDarts ? toNum(r[cDarts]) : null,
+checkoutValue: cCo ? toNum(r[cCo]) : null,
+startScore: cStart ? toNum(r[cStart]) : null,
+date: dateStr,
+dateObj: dateStr ? new Date(dateStr) : null,
+});
+});
+legs.sort((a,b)=> (a.leg??0)-(b.leg??0));
+const byMid = {};
+legs.forEach(l=>{ (byMid[l.mid] = byMid[l.mid]||[]).push(l); });
+state.legs = legs;
+state.legsByMid = byMid;
+}catch(e){ console.warn('legs.csv failed to parse:', e.message); }
 }
 
 /* ---------- UI build ---------- */
 function metricByKey(k){ return state.metrics.find(m=>m.key===k); }
 function metricVal(row){ return state.metric ? row.m[state.metric] : null; }
 function fmtMetric(v){
-  if(v===null||v===undefined) return '—';
-  return state.metric==='checkout' ? v.toFixed(1)+'%' : v.toFixed(2);
+if(v===null||v===undefined) return '—';
+return state.metric==='checkout' ? v.toFixed(1)+'%' : v.toFixed(2);
 }
 function mean(arr){ const a=arr.filter(x=>x!==null&&x!==undefined); return a.length? a.reduce((s,x)=>s+x,0)/a.length : null; }
-
 function currentSel(){ return state.mode==='opp' ? state.opp : state.event; }
 function setSel(v){ if(state.mode==='opp') state.opp=v; else state.event=v; }
 function eventKey(r){ return r.event || '(no event)'; }
-
 function populatePicker(){
-  const sel = $('oppSelect');
-  const counts = {};
-  if(state.mode==='opp'){
-    state.rows.forEach(r=> counts[r.opponent]=(counts[r.opponent]||0)+1);
-    const keys = Object.keys(counts).sort((a,b)=>a.localeCompare(b));
-    $('pickLabel').textContent = 'Opponent';
-    sel.innerHTML = '<option value="ALL">— All opponents (overview) —</option>' +
-      keys.map(o=>`<option value="${escapeAttr(o)}">${escapeHtml(o)} (${counts[o]})</option>`).join('');
-    sel.value = state.opp;
-  } else {
-    const firstTs = {};
-    state.rows.forEach(r=>{ const e=eventKey(r); counts[e]=(counts[e]||0)+1;
-      const ts=r.dateObj.getTime();
-      if(!isNaN(ts) && (firstTs[e]===undefined || ts<firstTs[e])) firstTs[e]=ts; });
-    const keys = Object.keys(counts).sort((a,b)=>
-      (firstTs[a]??Infinity)-(firstTs[b]??Infinity) || a.localeCompare(b));
-    $('pickLabel').textContent = 'Event';
-    sel.innerHTML = '<option value="ALL">— All events (overview) —</option>' +
-      keys.map(o=>`<option value="${escapeAttr(o)}">${escapeHtml(o)} (${counts[o]})</option>`).join('');
-    sel.value = state.event;
-  }
+const sel = $('oppSelect');
+const counts = {};
+if(state.mode==='opp'){
+state.rows.forEach(r=> counts[r.opponent]=(counts[r.opponent]||0)+1);
+const keys = Object.keys(counts).sort((a,b)=>a.localeCompare(b));
+$('pickLabel').textContent = 'Opponent';
+sel.innerHTML = '<option value="ALL">— All opponents (overview) —</option>' +
+keys.map(o=>`<option value="${escapeAttr(o)}">${escapeHtml(o)} (${counts[o]})</option>`).join('');
+sel.value = state.opp;
+} else {
+const firstTs = {};
+state.rows.forEach(r=>{ const e=eventKey(r); counts[e]=(counts[e]||0)+1;
+const ts=r.dateObj.getTime();
+if(!isNaN(ts) && (firstTs[e]===undefined || ts<firstTs[e])) firstTs[e]=ts; });
+const keys = Object.keys(counts).sort((a,b)=>
+(firstTs[a]??Infinity)-(firstTs[b]??Infinity) || a.localeCompare(b));
+$('pickLabel').textContent = 'Event';
+sel.innerHTML = '<option value="ALL">— All events (overview) —</option>' +
+keys.map(o=>`<option value="${escapeAttr(o)}">${escapeHtml(o)} (${counts[o]})</option>`).join('');
+sel.value = state.event;
 }
-
+}
 function buildUI(){
-  $('intro').classList.add('hidden');
-  $('dash').classList.remove('hidden');
-  $('topRight').classList.remove('hidden');
-  $('matchCount').textContent = state.rows.length + (state.rows.length===1?' match':' matches');
-
-  populatePicker();
-
-  // metric dropdown
-  const msel = $('metricSelect');
-  if(state.metrics.length){
-    msel.disabled = false;
-    msel.innerHTML = state.metrics.map(m=>`<option value="${m.key}">${m.label}</option>`).join('');
-    msel.value = state.metric;
-  } else {
-    msel.disabled = true;
-    msel.innerHTML = '<option>No numeric metrics found</option>';
-  }
-  updateChrome();
-  render();
+$('intro').classList.add('hidden');
+$('dash').classList.remove('hidden');
+$('topRight').classList.remove('hidden');
+$('matchCount').textContent = state.rows.length + (state.rows.length===1?' match':' matches');
+populatePicker();
+// metric dropdown
+const msel = $('metricSelect');
+if(state.metrics.length){
+msel.disabled = false;
+msel.innerHTML = state.metrics.map(m=>`<option value="${m.key}">${m.label}</option>`).join('');
+msel.value = state.metric;
+} else {
+msel.disabled = true;
+msel.innerHTML = '<option>No numeric metrics found</option>';
 }
-
+updateChrome();
+render();
+}
 /* ---------- showcase / publish chrome ---------- */
 function hasOwner(){ return !!(OWNER_DATA && OWNER_DATA.trim()); }
 function updateChrome(){
-  const owner = (OWNER_NAME || '').trim();
-  $('ownerPill').textContent = owner ? `${owner}'s history` : 'History';
-  $('ownerPill').classList.toggle('hidden', !state.showcase);
-  // In showcase: offer "Analyze your own data". Hide the reset button.
-  $('ownBtn').classList.toggle('hidden', !state.showcase);
-  $('resetBtn').classList.toggle('hidden', state.showcase);
-  // When viewing user-loaded data but an owner history exists, offer a way back.
-  $('backBtn').textContent = owner ? `‹ ${owner}'s stats` : '‹ Back';
-  $('backBtn').classList.toggle('hidden', !(hasOwner() && !state.showcase));
-  $('introBack').textContent = owner ? `‹ Back to ${owner}'s stats` : '‹ Back';
-  document.title = state.showcase && owner
-    ? `${owner} — darts history`
-    : 'OCHE — darts analyzer';
+const owner = (OWNER_NAME || '').trim();
+$('ownerPill').textContent = owner ? `${owner}'s history` : 'History';
+$('ownerPill').classList.toggle('hidden', !state.showcase);
+// In showcase: offer "Analyze your own data". Hide the reset button.
+$('ownBtn').classList.toggle('hidden', !state.showcase);
+$('resetBtn').classList.toggle('hidden', state.showcase);
+// When viewing user-loaded data but an owner history exists, offer a way back.
+$('backBtn').textContent = owner ? `‹ ${owner}'s stats` : '‹ Back';
+$('backBtn').classList.toggle('hidden', !(hasOwner() && !state.showcase));
+$('introBack').textContent = owner ? `‹ Back to ${owner}'s stats` : '‹ Back';
+document.title = state.showcase && owner
+? `${owner} — darts history`
+: 'OCHE — darts analyzer';
 }
 function loadOwner(){
-  state.showcase = true; state.mode='opp'; state.opp='ALL'; state.event='ALL'; state.sort={key:'p',dir:'desc'};
-  ingest(OWNER_DATA);   // ingest() calls buildUI() -> updateChrome()
+state.showcase = true; state.mode='opp'; state.opp='ALL'; state.event='ALL'; state.sort={key:'p',dir:'desc'};
+ingest(OWNER_DATA); // ingest() calls buildUI() -> updateChrome()
 }
 function showIntro(){
-  state.showcase = false;
-  if(chart){ chart.destroy(); chart=null; }
-  $('dash').classList.add('hidden');
-  $('topRight').classList.add('hidden');
-  $('intro').classList.remove('hidden');
-  $('introBack').classList.toggle('hidden', !hasOwner());
+state.showcase = false;
+if(chart){ chart.destroy(); chart=null; }
+$('dash').classList.add('hidden');
+$('topRight').classList.add('hidden');
+$('intro').classList.remove('hidden');
+$('introBack').classList.toggle('hidden', !hasOwner());
 }
 async function boot(){
-  let data = '';
-  if(DATA_URL){
-    try{ const r = await fetch(DATA_URL, {cache:'no-store'}); if(r.ok) data = await r.text(); }
-    catch(e){ /* offline or file:// — fall back to embedded */ }
-  }
-  if(!data || !data.trim()) data = EMBEDDED_CSV;
-  OWNER_DATA = (data && data.trim()) ? data : '';
-  if(hasOwner()){
-    try{ loadOwner(); return; }
-    catch(e){ console.warn('Embedded history failed to load:', e.message); }
-  }
-  showIntro();
+let data = '';
+if(DATA_URL){
+try{ const r = await fetch(DATA_URL, {cache:'no-store'}); if(r.ok) data = await r.text(); }
+catch(e){ /* offline or file:// — fall back to embedded */ }
 }
+if(!data || !data.trim()) data = EMBEDDED_CSV;
+OWNER_DATA = (data && data.trim()) ? data : '';
 
+let legsData = '';
+if(LEGS_URL){
+try{ const r = await fetch(LEGS_URL, {cache:'no-store'}); if(r.ok) legsData = await r.text(); }
+catch(e){ /* optional file — fine if missing */ }
+}
+if(!legsData || !legsData.trim()) legsData = LEGS_EMBEDDED;
+OWNER_LEGS = (legsData && legsData.trim()) ? legsData : '';
+
+if(hasOwner()){
+try{
+if(OWNER_LEGS) ingestLegs(OWNER_LEGS);
+loadOwner();
+return;
+}
+catch(e){ console.warn('Embedded history failed to load:', e.message); }
+}
+showIntro();
+}
 /* ---------- render ---------- */
 function render(){
-  if(currentSel()==='ALL'){ $('oppView').classList.add('hidden'); $('overview').classList.remove('hidden'); renderOverview(); }
-  else { $('overview').classList.add('hidden'); $('oppView').classList.remove('hidden'); renderDetail(); }
+if(state.mode==='career'){
+$('oppView').classList.add('hidden');
+$('overview').classList.add('hidden');
+$('careerStatsView').classList.remove('hidden');
+renderCareerStats();
+return;
 }
-
+$('careerStatsView').classList.add('hidden');
+if(currentSel()==='ALL'){ $('oppView').classList.add('hidden'); $('overview').classList.remove('hidden'); renderOverview(); }
+else { $('overview').classList.add('hidden'); $('oppView').classList.remove('hidden'); renderDetail(); }
+}
 function renderDetail(){
-  const isOpp = state.mode==='opp';
-  const sel = isOpp ? state.opp : state.event;
-  const rows = isOpp ? state.rows.filter(r=>r.opponent===sel)
-                     : state.rows.filter(r=>eventKey(r)===sel);
-  const mdef = metricByKey(state.metric);
-  const label = mdef ? mdef.label : 'Metric';
-
-  let w=0,l=0,d=0,lf=0,la=0;
-  rows.forEach(r=>{ if(r.result==='W')w++; else if(r.result==='L')l++; else d++; lf+=r.legsYou; la+=r.legsOpp; });
-
-  $('oppName').textContent = sel;
-  setBig('legsYou', lf, 0);
-  setBig('legsOpp', la, 0);
-  $('legsYou').className = 'legs' + (lf>la?' win':lf<la?' loss':'');
-  $('legsOpp').className = 'legs' + (la>lf?' win':la<lf?' loss':'');
-  $('recW').textContent=w; $('recL').textContent=l; $('recD').textContent=d;
-
-  // form pips (chronological, oldest -> newest)
-  $('formPips').innerHTML = rows.map(r=>`<span class="pip ${r.result}" title="${r.date} — ${r.result}">${r.result}</span>`).join('');
-
-  // cards
-  $('cMatches').textContent = rows.length;
-  $('cAvgLabel').textContent = label.length>14 ? 'Avg ('+label.replace(' average','')+')' : 'Avg '+label.replace(' average','');
-  const avgVs = mean(rows.map(metricVal));
-  const avgAll = mean(state.rows.map(metricVal));
-  $('cAvg').textContent = fmtMetric(avgVs);
-  const dEl = $('cAvgDelta');
-  if(avgVs!==null && avgAll!==null){
-    const diff = avgVs-avgAll;
-    const sign = diff>=0?'+':'−';
-    dEl.textContent = `${sign}${Math.abs(diff).toFixed(2)} vs your career avg`;
-    dEl.className = 'delta ' + (diff>0.0001?'up':diff<-0.0001?'down':'');
-  } else { dEl.textContent=''; dEl.className='delta'; }
-
-  // best night
-  const valued = rows.filter(r=>metricVal(r)!==null);
-  if(valued.length){
-    const best = valued.reduce((a,b)=> metricVal(b)>metricVal(a)?b:a);
-    $('cBest').textContent = fmtMetric(metricVal(best));
-    $('cBestDate').textContent = best.date;
-  } else { $('cBest').textContent='—'; $('cBestDate').textContent=''; }
-
-  // leg win %
-  const totLegs = lf+la;
-  $('cLegPct').textContent = totLegs ? Math.round(lf/totLegs*100)+'%' : '—';
-  $('cLegSplit').textContent = `${lf} won · ${la} lost`;
-
-  // chart
-  $('meetContextHead').textContent = isOpp ? 'Event' : 'Opponent';
-  $('meetMetricHead').textContent = mdef ? mdef.label : 'Metric';
-  $('trendTitle').textContent = isOpp ? `${label} vs ${sel}` : `${label} — ${sel}`;
-  drawTrend('trendChart', 'trendEmpty', rows, avgAll, label, {onPoint: highlightMeeting});
-
-  // meetings table (most recent first)
-  const tb = $('meetTable').querySelector('tbody');
-  tb.innerHTML = rows.slice().reverse().map(r=>{
-    const ctx = isOpp ? r.event : r.opponent;
-    return `
-    <tr data-mk="${escapeAttr(matchKey(r))}">
-      <td>${escapeHtml(r.date)}</td>
-      <td>${escapeHtml(ctx)||'<span style="color:var(--dim)">—</span>'}</td>
-      <td class="num">${r.legsYou}–${r.legsOpp}</td>
-      <td><span class="tag ${r.result}">${r.result}</span></td>
-      <td class="num">${fmtMetric(metricVal(r))}</td>
-    </tr>`;}).join('');
+const isOpp = state.mode==='opp';
+const sel = isOpp ? state.opp : state.event;
+const rows = isOpp ? state.rows.filter(r=>r.opponent===sel)
+: state.rows.filter(r=>eventKey(r)===sel);
+const mdef = metricByKey(state.metric);
+const label = mdef ? mdef.label : 'Metric';
+let w=0,l=0,d=0,lf=0,la=0;
+rows.forEach(r=>{ if(r.result==='W')w++; else if(r.result==='L')l++; else d++; lf+=r.legsYou; la+=r.legsOpp; });
+$('oppName').textContent = sel;
+setBig('legsYou', lf, 0);
+setBig('legsOpp', la, 0);
+$('legsYou').className = 'legs' + (lf>la?' win':lf<la?' loss':'');
+$('legsOpp').className = 'legs' + (la>lf?' win':la<lf?' loss':'');
+$('recW').textContent=w; $('recL').textContent=l; $('recD').textContent=d;
+// form pips (chronological, oldest -> newest)
+$('formPips').innerHTML = rows.map(r=>`<span class="pip ${r.result}" title="${r.date} — ${r.result}">${r.result}</span>`).join('');
+// cards
+$('cMatches').textContent = rows.length;
+$('cAvgLabel').textContent = label.length>14 ? 'Avg ('+label.replace(' average','')+')' : 'Avg '+label.replace(' average','');
+const avgVs = mean(rows.map(metricVal));
+const avgAll = mean(state.rows.map(metricVal));
+$('cAvg').textContent = fmtMetric(avgVs);
+const dEl = $('cAvgDelta');
+if(avgVs!==null && avgAll!==null){
+const diff = avgVs-avgAll;
+const sign = diff>=0?'+':'−';
+dEl.textContent = `${sign}${Math.abs(diff).toFixed(2)} vs your career avg`;
+dEl.className = 'delta ' + (diff>0.0001?'up':diff<-0.0001?'down':'');
+} else { dEl.textContent=''; dEl.className='delta'; }
+// best night
+const valued = rows.filter(r=>metricVal(r)!==null);
+if(valued.length){
+const best = valued.reduce((a,b)=> metricVal(b)>metricVal(a)?b:a);
+$('cBest').textContent = fmtMetric(metricVal(best));
+$('cBestDate').textContent = best.date;
+} else { $('cBest').textContent='—'; $('cBestDate').textContent=''; }
+// leg win %
+const totLegs = lf+la;
+$('cLegPct').textContent = totLegs ? Math.round(lf/totLegs*100)+'%' : '—';
+$('cLegSplit').textContent = `${lf} won · ${la} lost`;
+// chart
+$('meetContextHead').textContent = isOpp ? 'Event' : 'Opponent';
+$('meetMetricHead').textContent = mdef ? mdef.label : 'Metric';
+$('trendTitle').textContent = isOpp ? `${label} vs ${sel}` : `${label} — ${sel}`;
+renderRangeControls('detailRangeBar', state.detailRange, rows, renderDetail);
+const rangedRows = filterByRange(rows, state.detailRange);
+drawTrend('trendChart', 'trendEmpty', rangedRows, avgAll, label, {onPoint: openMatchModal});
+// meetings table (most recent first)
+const tb = $('meetTable').querySelector('tbody');
+tb.innerHTML = rows.slice().reverse().map(r=>{
+const ctx = isOpp ? r.event : r.opponent;
+return `
+<tr data-mk="${escapeAttr(matchKey(r))}">
+<td>${escapeHtml(r.date)}</td>
+<td>${escapeHtml(ctx)||'<span style="color:var(--dim)">—</span>'}</td>
+<td class="num">${r.legsYou}–${r.legsOpp}</td>
+<td><span class="tag ${r.result}">${r.result}</span></td>
+<td class="num">${fmtMetric(metricVal(r))}</td>
+</tr>`;}).join('');
 }
-
 // ---- match-point navigation ----
 function matchKey(r){ return `${r.date}|${r.opponent}|${r.event}|${r.legsYou}-${r.legsOpp}`; }
-
 function highlightMeeting(r){
-  const tr = $('meetTable').querySelector(`tbody tr[data-mk="${cssEsc(matchKey(r))}"]`);
-  if(!tr) return;
-  document.querySelectorAll('tr.meet-hl').forEach(x=>x.classList.remove('meet-hl'));
-  // restart the flash animation
-  tr.classList.remove('meet-hl'); void tr.offsetWidth; tr.classList.add('meet-hl');
-  tr.scrollIntoView({behavior: reduceMotion?'auto':'smooth', block:'center'});
+const tr = $('meetTable').querySelector(`tbody tr[data-mk="${cssEsc(matchKey(r))}"]`);
+if(!tr) return;
+document.querySelectorAll('tr.meet-hl').forEach(x=>x.classList.remove('meet-hl'));
+// restart the flash animation
+tr.classList.remove('meet-hl'); void tr.offsetWidth; tr.classList.add('meet-hl');
+tr.scrollIntoView({behavior: reduceMotion?'auto':'smooth', block:'center'});
 }
 function cssEsc(s){ return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/["\\]/g,'\\$&'); }
-
 function openMatchFromCareer(r){
-  // jump into the opponent head-to-head that contains this match, then flash the row
-  if(state.mode!=='opp'){
-    state.mode='opp';
-    $('modeOpp').setAttribute('aria-pressed','true');
-    $('modeEvent').setAttribute('aria-pressed','false');
-    state.sort={key:'p',dir:'desc'};
-  }
-  state.opp = r.opponent;
-  populatePicker();
-  render();
-  highlightMeeting(r);
+// jump into the opponent head-to-head that contains this match, then flash the row
+if(state.mode!=='opp'){
+state.mode='opp';
+$('modeOpp').setAttribute('aria-pressed','true');
+$('modeEvent').setAttribute('aria-pressed','false');
+state.sort={key:'p',dir:'desc'};
 }
+state.opp = r.opponent;
+populatePicker();
+render();
+highlightMeeting(r);
+}
+/* ---------- date-range presets (zoom/scroll for trend charts) ---------- */
+const RANGE_PRESETS = [
+{key:'1m', label:'1M', months:1},
+{key:'3m', label:'3M', months:3},
+{key:'6m', label:'6M', months:6},
+{key:'1y', label:'1Y', months:12},
+{key:'all', label:'All', months:null},
+];
+function addMonths(date, n){ const d=new Date(date); d.setMonth(d.getMonth()+n); return d; }
+function fmtRangeDate(d){ return d.toISOString().slice(0,10); }
+function rangeWindow(rangeState, allRows){
+const preset = RANGE_PRESETS.find(p=>p.key===rangeState.preset) || RANGE_PRESETS[RANGE_PRESETS.length-1];
+if(!preset.months || !allRows.length) return null; // 'all' -- no filtering
+const dated = allRows.filter(r=>r.dateObj && !isNaN(r.dateObj.getTime()));
+if(!dated.length) return null;
+// Computed via min/max rather than array edges -- doesn't assume the
+// input is chronologically sorted (state.legs, for one, is sorted by
+// leg number for the match-detail modal, not by date).
+let latestTs = -Infinity, earliestTs = Infinity;
+dated.forEach(r=>{ const t=r.dateObj.getTime(); if(t>latestTs) latestTs=t; if(t<earliestTs) earliestTs=t; });
+const latest = new Date(latestTs), earliest = new Date(earliestTs);
+let anchor = rangeState.anchor ? new Date(rangeState.anchor) : latest;
+if(anchor > latest) anchor = latest;
+const start = addMonths(anchor, -preset.months);
+return {start, end:anchor, preset, latest, earliest};
+}
+function filterByRange(rows, rangeState){
+const win = rangeWindow(rangeState, rows);
+if(!win) return rows;
+return rows.filter(r=> !isNaN(r.dateObj.getTime()) && r.dateObj>=win.start && r.dateObj<=win.end);
+}
+function renderRangeControls(containerId, rangeState, allRows, onChange){
+const el = $(containerId);
+if(!allRows.length){ el.innerHTML=''; return; }
+const win = rangeWindow(rangeState, allRows);
+const segBtns = RANGE_PRESETS.map(p=>
+`<button data-preset="${p.key}" aria-pressed="${rangeState.preset===p.key}">${p.label}</button>`).join('');
+let navHtml = '';
+if(win){
+const atNewest = win.end >= win.latest;
+const atOldest = win.start <= win.earliest;
+navHtml = `<div class="rangenav">
+<button id="${containerId}_prev" ${atOldest?'disabled':''} aria-label="Earlier">‹</button>
+<span class="rangelabel">${fmtRangeDate(win.start)} → ${fmtRangeDate(win.end)}</span>
+<button id="${containerId}_next" ${atNewest?'disabled':''} aria-label="Later">›</button>
+</div>`;
+}
+el.innerHTML = `<div class="seg" role="group" aria-label="Date range">${segBtns}</div>${navHtml}`;
+el.querySelectorAll('button[data-preset]').forEach(btn=>{
+btn.addEventListener('click', ()=>{
+rangeState.preset = btn.dataset.preset;
+rangeState.anchor = null; // reset to "latest" whenever the preset changes
+onChange();
+});
+});
+if(win){
+const prevBtn = $(containerId+'_prev'), nextBtn = $(containerId+'_next');
+if(prevBtn) prevBtn.addEventListener('click', ()=>{
+rangeState.anchor = addMonths(win.end, -win.preset.months);
+onChange();
+});
+if(nextBtn) nextBtn.addEventListener('click', ()=>{
+const next = addMonths(win.end, win.preset.months);
+rangeState.anchor = next > win.latest ? win.latest : next;
+onChange();
+});
+}
+}
+
+function attachRunningAvg(rows, metricKey){
+let sum=0, n=0;
+rows.forEach(r=>{
+const v = metricKey ? r.m[metricKey] : null;
+if(v!==null && v!==undefined){ sum+=v; n++; }
+r._careerRunning = n ? Math.round(sum/n*100)/100 : null;
+});
+}
+/* ---------- match detail modal ---------- */
+// Row order matches nakka's own match-stats page. "you"/"opp" (functions)
+// are used for the one row (Legs) already on the row object directly;
+// everything else reads from row.raw by exact CSV header name.
+const MODAL_STAT_ROWS = [
+{ label:'Legs', you: r=>r.legsYou, opp: r=>r.legsOpp },
+{ label:'3 Darts', youKey:'Your_3Dart_Avg', oppKey:'Opp_3Dart_Avg' },
+{ label:'First 9', youKey:'Your_First9', oppKey:'Opp_First9' },
+{ label:'60+', youKey:'Your_60_Plus', oppKey:'Opp_60_Plus' },
+{ label:'80+', youKey:'Your_80_Plus', oppKey:'Opp_80_Plus' },
+{ label:'100+', youKey:'Your_100_Plus', oppKey:'Opp_100_Plus' },
+{ label:'120+', youKey:'Your_120_Plus', oppKey:'Opp_120_Plus' },
+{ label:'140+', youKey:'Your_140_Plus', oppKey:'Opp_140_Plus' },
+{ label:'170+', youKey:'Your_170_Plus', oppKey:'Opp_170_Plus' },
+{ label:"180's", youKey:'Your_180s', oppKey:'Opp_180s' },
+{ label:'High Finish', youKey:'Your_High_Finish', oppKey:'Opp_High_Finish' },
+{ label:'100+ Finishes', youKey:'Your_100_Plus_Finishes', oppKey:'Opp_100_Plus_Finishes' },
+{ label:'Best Leg', youKey:'Your_Best_Leg_Darts', oppKey:'Opp_Best_Leg_Darts' },
+{ label:'Worst Leg', youKey:'Your_Worst_Leg_Darts', oppKey:'Opp_Worst_Leg_Darts' },
+{ label:'Checkout %', youKey:'Your_Checkout%', oppKey:'Opp_Checkout%', pct:true },
+];
+function rawVal(raw, key){
+const v = raw[key];
+return (v===undefined||v===null||String(v).trim()==='') ? null : String(v).trim();
+}
+function openMatchModal(row){
+$('modalTitle').textContent = `${row.opponent}`;
+const scoreStr = `${row.legsYou}–${row.legsOpp} (${row.result})`;
+$('modalSub').textContent = [row.date, row.event, scoreStr].filter(Boolean).join(' · ');
+$('modalStatsOppHead').textContent = row.opponent || 'Opponent';
+
+const raw = row.raw || {};
+let anyDetail = false;
+const statBody = MODAL_STAT_ROWS.map(def=>{
+let yv, ov;
+if(def.you){ yv = def.you(row); ov = def.opp(row); }
+else {
+yv = rawVal(raw, def.youKey); ov = rawVal(raw, def.oppKey);
+if(yv!=null || ov!=null) anyDetail = true;
+}
+const fmt = v => (v===null||v===undefined) ? '—' : (def.pct ? v+'%' : v);
+return `<tr><td>${escapeHtml(def.label)}</td><td class="num">${fmt(yv)}</td><td class="num">${fmt(ov)}</td></tr>`;
+}).join('');
+$('modalStatsTable').querySelector('tbody').innerHTML = statBody;
+$('modalStatsEmpty').classList.toggle('hidden', anyDetail);
+
+// leg-by-leg breakdown -- available via toggle, collapsed by default
+$('modalLegsWrap').classList.add('hidden');
+$('modalLegsToggle').textContent = 'Show leg-by-leg breakdown ›';
+const legs = row.mid ? (state.legsByMid[row.mid] || []) : [];
+const tbody = $('modalLegsTable').querySelector('tbody');
+if(legs.length){
+$('modalEmpty').classList.add('hidden');
+$('modalLegsTable').classList.remove('hidden');
+tbody.innerHTML = legs.map(l=>{
+const co = (l.won && l.checkoutValue!=null) ? `${l.checkoutValue} (${l.darts||'?'} darts)` : '—';
+return `<tr>
+<td>${l.leg}</td>
+<td><span class="tag ${l.won?'W':'L'}">${l.player==='You'?'You':escapeHtml(row.opponent)}</span></td>
+<td class="num">${l.won && l.darts!=null ? l.darts : '—'}</td>
+<td class="num">${co}</td>
+</tr>`;
+}).join('');
+} else {
+$('modalEmpty').classList.remove('hidden');
+$('modalLegsTable').classList.add('hidden');
+tbody.innerHTML = '';
+}
+
+const oppLink = $('modalOppLink');
+oppLink.onclick = (e)=>{ e.preventDefault(); closeMatchModal(); openMatchFromCareer(row); };
+
+$('matchModal').classList.remove('hidden');
+}
+$('modalLegsToggle').addEventListener('click', ()=>{
+const wrap = $('modalLegsWrap');
+const willShow = wrap.classList.contains('hidden');
+wrap.classList.toggle('hidden');
+$('modalLegsToggle').textContent = willShow ? 'Hide leg-by-leg breakdown' : 'Show leg-by-leg breakdown ›';
+});
+function closeMatchModal(){ $('matchModal').classList.add('hidden'); }
+$('modalClose').addEventListener('click', closeMatchModal);
+$('matchModal').addEventListener('click', e=>{ if(e.target.id==='matchModal') closeMatchModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape' && !$('matchModal').classList.contains('hidden')) closeMatchModal(); });
 
 function drawTrend(canvasId, emptyId, rows, avgAll, label, opts){
-  opts = opts || {};
-  const box = $(canvasId);
-  const empty = $(emptyId);
-  const valued = rows.filter(r=>metricVal(r)!==null);
-  if(chart){ chart.destroy(); chart=null; }
-  if(!state.metric || valued.length<1){
-    box.classList.add('hidden'); empty.classList.remove('hidden'); return;
-  }
-  box.classList.remove('hidden'); empty.classList.add('hidden');
+opts = opts || {};
+const box = $(canvasId);
+const empty = $(emptyId);
+const valued = rows.filter(r=>metricVal(r)!==null);
+if(chart){ chart.destroy(); chart=null; }
+if(!state.metric || valued.length<1){
+box.classList.add('hidden'); empty.classList.remove('hidden'); return;
+}
+box.classList.remove('hidden'); empty.classList.add('hidden');
+const labels = valued.map(r=>r.date);
+const data = valued.map(r=>metricVal(r));
+const colors = valued.map(r=> r.result==='W'?'#2f9e5f':r.result==='L'?'#d23b32':'#e0b13c');
+const ds = [{
+label, data, borderColor:'#e0b13c', borderWidth:2,
+pointBackgroundColor:colors, pointBorderColor:colors, pointRadius:5, pointHoverRadius:7,
+tension:.25, fill:false
+}];
+if(opts.runningAvg){
+// career average as it stood after each match (cumulative mean, computed
+// over your FULL history even when the chart is zoomed to a window --
+// see attachRunningAvg, called before drawTrend for the career chart)
+const run = valued.map(r=> r._careerRunning!=null ? r._careerRunning : null);
+ds.push({label:'Career avg (running)', data:run, borderColor:'#9fb6c4',
+borderWidth:2.5, pointRadius:0, tension:.3, fill:false, spanGaps:true});
 
-  const labels = valued.map(r=>r.date);
-  const data = valued.map(r=>metricVal(r));
-  const colors = valued.map(r=> r.result==='W'?'#2f9e5f':r.result==='L'?'#d23b32':'#e0b13c');
-  const ds = [{
-    label, data, borderColor:'#e0b13c', borderWidth:2,
-    pointBackgroundColor:colors, pointBorderColor:colors, pointRadius:5, pointHoverRadius:7,
-    tension:.25, fill:false
-  }];
-  if(opts.runningAvg){
-    // career average as it stood after each match (cumulative mean)
-    let sum=0; const run = data.map((v,i)=>{ sum+=v; return Math.round(sum/(i+1)*100)/100; });
-    ds.push({label:'Career avg (running)', data:run, borderColor:'#9fb6c4',
-      borderWidth:2.5, pointRadius:0, tension:.3, fill:false});
-  } else if(avgAll!==null){
-    ds.push({label:'Career avg', data:labels.map(()=>avgAll), borderColor:'#7d858a',
-      borderWidth:1.5, borderDash:[5,5], pointRadius:0, tension:0});
-  }
-  chart = new Chart(box.getContext('2d'),{
-    type:'line',
-    data:{labels, datasets:ds},
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      animation: reduceMotion ? false : {duration:500},
-      interaction:{mode:'index', intersect:false},
-      onHover:(e,els)=>{ if(e.native&&e.native.target) e.native.target.style.cursor = (els&&els.length&&opts.onPoint)?'pointer':'default'; },
-      onClick:(e,els)=>{
-        if(!opts.onPoint || !els || !els.length) return;
-        const el = els.find(x=>x.datasetIndex===0) || els[0];
-        const r = valued[el.index];
-        if(r) opts.onPoint(r);
-      },
-      plugins:{
-        legend:{labels:{color:'#929a9c', font:{family:'Inter'}}},
-        tooltip:{
-          backgroundColor:'#1c2024', borderColor:'#363c41', borderWidth:1,
-          titleColor:'#ece7da', bodyColor:'#ece7da',
-          callbacks:{ afterBody:(items)=>{ const r=valued[items[0].dataIndex];
-            return r ? `${r.opponent} · ${r.legsYou}–${r.legsOpp} (${r.result})` : ''; } }
-        }
-      },
-      scales:{
-        x:{ticks:{color:'#929a9c', font:{family:'Inter',size:11}, maxRotation:45, minRotation:0},
-           grid:{color:'rgba(54,60,65,.4)'}},
-        y:{ticks:{color:'#929a9c', font:{family:'Inter',size:11}}, grid:{color:'rgba(54,60,65,.4)'}}
-      }
-    }
-  });
+// windowed running average: cumulative mean starting fresh from the
+// beginning of whatever's currently visible (resets each time you
+// change the zoom window), rather than a single flat number for the
+// whole period. Unlike the career-running line above, this is computed
+// directly from `data` (already scoped to the visible window) since we
+// WANT it to reset at the window boundary.
+let periodSum = 0;
+const periodRunning = data.map((v, i) => { periodSum += v; return Math.round(periodSum / (i + 1) * 100) / 100; });
+ds.push({label:'This period avg (running)', data: periodRunning, borderColor:'#a682d9',
+borderWidth:1.5, pointRadius:0, tension:.3, fill:false});
+} else if(avgAll!==null){
+ds.push({label:'Career avg', data:labels.map(()=>avgAll), borderColor:'#7d858a',
+borderWidth:1.5, borderDash:[5,5], pointRadius:0, tension:0});
+}
+chart = new Chart(box.getContext('2d'),{
+type:'line',
+data:{labels, datasets:ds},
+options:{
+responsive:true, maintainAspectRatio:false,
+animation: reduceMotion ? false : {duration:500},
+interaction:{mode:'index', intersect:false},
+onHover:(e,els)=>{ if(e.native&&e.native.target) e.native.target.style.cursor = (els&&els.length&&opts.onPoint)?'pointer':'default'; },
+onClick:(e,els)=>{
+if(!opts.onPoint || !els || !els.length) return;
+const el = els.find(x=>x.datasetIndex===0) || els[0];
+const r = valued[el.index];
+if(r) opts.onPoint(r);
+},
+plugins:{
+legend:{labels:{color:'#929a9c', font:{family:'Inter'}}},
+tooltip:{
+backgroundColor:'#1c2024', borderColor:'#363c41', borderWidth:1,
+titleColor:'#ece7da', bodyColor:'#ece7da',
+callbacks:{ afterBody:(items)=>{ const r=valued[items[0].dataIndex];
+return r ? `${r.opponent} · ${r.legsYou}–${r.legsOpp} (${r.result})` : ''; } }
+}
+},
+scales:{
+x:{ticks:{color:'#929a9c', font:{family:'Inter',size:11}, maxRotation:45, minRotation:0},
+grid:{color:'rgba(54,60,65,.4)'}},
+y:{ticks:{color:'#929a9c', font:{family:'Inter',size:11}}, grid:{color:'rgba(54,60,65,.4)'}}
+}
+}
+});
+}
+function renderOverview(){
+const isOpp = state.mode==='opp';
+const rows = state.rows;
+let w=0,l=0,d=0;
+rows.forEach(r=>{ if(r.result==='W')w++; else if(r.result==='L')l++; else d++; });
+$('oTotal').textContent = rows.length;
+$('oRecord').textContent = `${w}–${l}–${d}`;
+const decisive = w+l;
+$('oWinPct').textContent = decisive ? Math.round(w/decisive*100)+'% of decided matches won' : '';
+const mdef = metricByKey(state.metric);
+$('oAvgLabel').textContent = mdef ? 'Career '+mdef.label : 'Career average';
+$('oAvg').textContent = fmtMetric(mean(rows.map(metricVal)));
+// career trend chart of the tracked metric across all matches
+const careerLabel = mdef ? mdef.label : 'Metric';
+$('careerTitle').textContent = `Career ${careerLabel}`;
+attachRunningAvg(rows, state.metric);
+renderRangeControls('careerRangeBar', state.careerRange, rows, renderOverview);
+const rangedCareerRows = filterByRange(rows, state.careerRange);
+drawTrend('careerChart', 'careerEmpty', rangedCareerRows, null, careerLabel, {runningAvg:true, onPoint: openMatchModal});
+// aggregate by the active dimension
+const keyOf = isOpp ? (r=>r.opponent) : (r=>eventKey(r));
+const map = {};
+rows.forEach(r=>{
+const k = keyOf(r);
+const o = map[k] || (map[k]={p:0,w:0,l:0,d:0,vals:[],first:Infinity,firstStr:'',last:-Infinity,lastStr:''});
+o.p++; if(r.result==='W')o.w++; else if(r.result==='L')o.l++; else o.d++;
+const v=metricVal(r); if(v!==null)o.vals.push(v);
+const ts=r.dateObj.getTime();
+if(!isNaN(ts)){
+if(ts<o.first){ o.first=ts; o.firstStr=r.date; }
+if(ts>o.last){ o.last=ts; o.lastStr=r.date; }
+}
+});
+$('oCountLabel').textContent = isOpp ? 'Opponents faced' : 'Events played';
+$('oCount').textContent = Object.keys(map).length;
+$('overviewTitle').textContent = isOpp ? 'Opponents' : 'Events';
+$('overviewSub').textContent = isOpp
+? 'Sorted by matches played. Click any row to open the head-to-head.'
+: 'In chronological order. Click any column to re-sort, or any row to open the event.';
+const metricHead = mdef ? mdef.label : 'Avg';
+overviewCols = [
+{key:'name', label:isOpp?'Opponent':'Event', num:false,
+cell:o=>`<td class="oppname">${escapeHtml(o.name)}</td>`},
+];
+if(!isOpp) overviewCols.push({key:'date', label:'Started', num:true,
+cell:o=>`<td class="num">${o.first!=null?escapeHtml(o.firstStr):'—'}</td>`});
+overviewCols.push(
+{key:'p', label:'P', num:true, cell:o=>`<td class="num">${o.p}</td>`},
+{key:'w', label:'W', num:true, cell:o=>`<td class="num" style="color:var(--green)">${o.w}</td>`},
+{key:'l', label:'L', num:true, cell:o=>`<td class="num" style="color:var(--red)">${o.l}</td>`},
+{key:'d', label:'D', num:true, cell:o=>`<td class="num" style="color:var(--gold)">${o.d}</td>`},
+{key:'winPct', label:'Win %', num:true, cell:o=>`<td class="num">${o.winPct===null?'—':Math.round(o.winPct)+'%'}</td>`},
+{key:'avg', label:metricHead, num:true, cell:o=>`<td class="num">${fmtMetric(o.avg)}</td>`}
+);
+$('overviewTable').querySelector('thead').innerHTML =
+'<tr>' + overviewCols.map(c=>
+`<th class="sortable${c.num?' num':''}" data-key="${c.key}" data-num="${c.num}">`+
+`${escapeHtml(c.label)}<span class="arrow"></span></th>`).join('') + '</tr>';
+$('overviewTable').querySelectorAll('thead th[data-key]').forEach(th=>{
+th.addEventListener('click', ()=>{
+const key = th.dataset.key, isNum = th.dataset.num==='true';
+if(state.sort.key===key){ state.sort.dir = state.sort.dir==='asc'?'desc':'asc'; }
+else { state.sort.key=key; state.sort.dir = isNum?'desc':'asc'; }
+renderOverviewTable();
+});
+});
+overviewList = Object.entries(map).map(([name,o])=>{
+const dec=o.w+o.l;
+return {name, p:o.p, w:o.w, l:o.l, d:o.d, winPct: dec?o.w/dec*100:null, avg:mean(o.vals),
+date: isFinite(o.first)?o.first:null, first: isFinite(o.first)?o.first:null,
+firstStr:o.firstStr, last: isFinite(o.last)?o.last:null, lastStr:o.lastStr};
+});
+renderOverviewTable();
+}
+/* ---------- career stats page ---------- */
+function renderCareerStats(){
+const myWonLegs = state.legs.filter(l=>l.player==='You' && l.won);
+
+// -- stat cards --
+const checkouts = myWonLegs.filter(l=>l.checkoutValue!=null).map(l=>l.checkoutValue);
+$('kHighCheckout').textContent = checkouts.length ? Math.max(...checkouts) : '—';
+
+const legs501 = myWonLegs.filter(l=>l.darts!=null && l.startScore===501).map(l=>l.darts);
+$('kFewestDarts').textContent = legs501.length ? Math.min(...legs501) : '—';
+
+$('kCareerAvg').textContent = fmtCareer(mean(state.rows.map(r=>r.m.avg)), 2);
+$('kCareerFirst9').textContent = fmtCareer(mean(state.rows.map(r=>r.m.first9)), 2);
+
+const totalMakes = state.rows.reduce((s,r)=> s + (r.checkoutMakes||0), 0);
+const totalAttempts = state.rows.reduce((s,r)=> s + (r.checkoutAttempts||0), 0);
+if(totalAttempts>0){
+$('kCareerCheckout').textContent = (totalMakes/totalAttempts*100).toFixed(1)+'%';
+$('kCareerCheckoutSub').textContent = `${totalMakes} of ${totalAttempts} attempts`;
+} else {
+$('kCareerCheckout').textContent = '—';
+$('kCareerCheckoutSub').textContent = state.legs.length ? '' : 'Needs legs.csv';
 }
 
-function renderOverview(){
-  const isOpp = state.mode==='opp';
-  const rows = state.rows;
-  let w=0,l=0,d=0;
-  rows.forEach(r=>{ if(r.result==='W')w++; else if(r.result==='L')l++; else d++; });
-  $('oTotal').textContent = rows.length;
-  $('oRecord').textContent = `${w}–${l}–${d}`;
-  const decisive = w+l;
-  $('oWinPct').textContent = decisive ? Math.round(w/decisive*100)+'% of decided matches won' : '';
-  const mdef = metricByKey(state.metric);
-  $('oAvgLabel').textContent = mdef ? 'Career '+mdef.label : 'Career average';
-  $('oAvg').textContent = fmtMetric(mean(rows.map(metricVal)));
+// -- bar chart: 100+ checkouts by exact value --
+const coBox = $('checkoutBarChart'), coEmpty = $('checkoutBarEmpty');
+if(checkoutBarChart){ checkoutBarChart.destroy(); checkoutBarChart=null; }
+const highCheckouts = myWonLegs.filter(l=>l.checkoutValue!=null && l.checkoutValue>=100);
+if(highCheckouts.length){
+coBox.classList.remove('hidden'); coEmpty.classList.add('hidden');
+const counts = {};
+highCheckouts.forEach(l=> counts[l.checkoutValue] = (counts[l.checkoutValue]||0)+1);
+const values = Object.keys(counts).map(Number).sort((a,b)=>a-b);
+checkoutBarChart = new Chart(coBox.getContext('2d'), {
+type:'bar',
+data:{ labels: values.map(String), datasets:[{
+label:'Times hit', data: values.map(v=>counts[v]),
+backgroundColor:'#e0b13c', borderRadius:4, maxBarThickness:26,
+}]},
+options: barChartOptions('Checkout value', 'Times hit'),
+});
+} else {
+coBox.classList.add('hidden'); coEmpty.classList.remove('hidden');
+}
 
-  // career trend chart of the tracked metric across all matches
-  const careerLabel = mdef ? mdef.label : 'Metric';
-  $('careerTitle').textContent = `Career ${careerLabel}`;
-  drawTrend('careerChart', 'careerEmpty', rows, null, careerLabel, {runningAvg:true, onPoint: openMatchFromCareer});
-
-  // aggregate by the active dimension
-  const keyOf = isOpp ? (r=>r.opponent) : (r=>eventKey(r));
-  const map = {};
-  rows.forEach(r=>{
-    const k = keyOf(r);
-    const o = map[k] || (map[k]={p:0,w:0,l:0,d:0,vals:[],first:Infinity,firstStr:'',last:-Infinity,lastStr:''});
-    o.p++; if(r.result==='W')o.w++; else if(r.result==='L')o.l++; else o.d++;
-    const v=metricVal(r); if(v!==null)o.vals.push(v);
-    const ts=r.dateObj.getTime();
-    if(!isNaN(ts)){
-      if(ts<o.first){ o.first=ts; o.firstStr=r.date; }
-      if(ts>o.last){ o.last=ts; o.lastStr=r.date; }
-    }
-  });
-
-  $('oCountLabel').textContent = isOpp ? 'Opponents faced' : 'Events played';
-  $('oCount').textContent = Object.keys(map).length;
-  $('overviewTitle').textContent = isOpp ? 'Opponents' : 'Events';
-  $('overviewSub').textContent = isOpp
-    ? 'Sorted by matches played. Click any row to open the head-to-head.'
-    : 'In chronological order. Click any column to re-sort, or any row to open the event.';
-
-  const metricHead = mdef ? mdef.label : 'Avg';
-  overviewCols = [
-    {key:'name', label:isOpp?'Opponent':'Event', num:false,
-       cell:o=>`<td class="oppname">${escapeHtml(o.name)}</td>`},
-  ];
-  if(!isOpp) overviewCols.push({key:'date', label:'Started', num:true,
-       cell:o=>`<td class="num">${o.first!=null?escapeHtml(o.firstStr):'—'}</td>`});
-  overviewCols.push(
-    {key:'p', label:'P', num:true, cell:o=>`<td class="num">${o.p}</td>`},
-    {key:'w', label:'W', num:true, cell:o=>`<td class="num" style="color:var(--green)">${o.w}</td>`},
-    {key:'l', label:'L', num:true, cell:o=>`<td class="num" style="color:var(--red)">${o.l}</td>`},
-    {key:'d', label:'D', num:true, cell:o=>`<td class="num" style="color:var(--gold)">${o.d}</td>`},
-    {key:'winPct', label:'Win %', num:true, cell:o=>`<td class="num">${o.winPct===null?'—':Math.round(o.winPct)+'%'}</td>`},
-    {key:'avg', label:metricHead, num:true, cell:o=>`<td class="num">${fmtMetric(o.avg)}</td>`}
-  );
-  $('overviewTable').querySelector('thead').innerHTML =
-    '<tr>' + overviewCols.map(c=>
-      `<th class="sortable${c.num?' num':''}" data-key="${c.key}" data-num="${c.num}">`+
-      `${escapeHtml(c.label)}<span class="arrow"></span></th>`).join('') + '</tr>';
-  $('overviewTable').querySelectorAll('thead th[data-key]').forEach(th=>{
-    th.addEventListener('click', ()=>{
-      const key = th.dataset.key, isNum = th.dataset.num==='true';
-      if(state.sort.key===key){ state.sort.dir = state.sort.dir==='asc'?'desc':'asc'; }
-      else { state.sort.key=key; state.sort.dir = isNum?'desc':'asc'; }
-      renderOverviewTable();
-    });
-  });
-
-  overviewList = Object.entries(map).map(([name,o])=>{
-    const dec=o.w+o.l;
-    return {name, p:o.p, w:o.w, l:o.l, d:o.d, winPct: dec?o.w/dec*100:null, avg:mean(o.vals),
-            date: isFinite(o.first)?o.first:null, first: isFinite(o.first)?o.first:null,
-            firstStr:o.firstStr, last: isFinite(o.last)?o.last:null, lastStr:o.lastStr};
-  });
-  renderOverviewTable();
+// -- bar chart: legs won, by dart-count bucket -- range-filterable so
+// you can see recent progression, not just an all-time blend.
+const legBox = $('legsBarChart'), legEmpty = $('legsBarEmpty');
+if(legsBarChart){ legsBarChart.destroy(); legsBarChart=null; }
+renderRangeControls('legsBarRangeBar', state.legsRange, myWonLegs, renderCareerStats);
+const rangedWonLegs = filterByRange(myWonLegs, state.legsRange);
+const dartsList = rangedWonLegs.filter(l=>l.darts!=null).map(l=>l.darts);
+const under30 = dartsList.filter(d=>d<30).length;
+$('avgDartsValue').textContent = dartsList.length ? mean(dartsList).toFixed(1) : '—';
+const callout = $('under30Callout');
+if(dartsList.length){
+callout.classList.remove('hidden');
+callout.innerHTML = `<b>${under30}</b> of your ${dartsList.length} completed legs finished in under 30 darts.`;
+} else {
+callout.classList.add('hidden');
+}
+if(dartsList.length){
+legBox.classList.remove('hidden'); legEmpty.classList.add('hidden');
+const bucketSize = 3;
+// Buckets anchored to a fixed grid starting at dart 1 (1-3, 4-6, 7-9,
+// ...), matching real turn boundaries -- NOT shifted based on whatever
+// the data's minimum happens to be, so "30-32" always really means
+// darts 30-32 (the 10th turn's range), consistent across every view.
+const maxDarts = Math.max(...dartsList);
+const totalBuckets = Math.ceil(maxDarts / bucketSize);
+const allStarts = Array.from({length: totalBuckets}, (_, i) => i * bucketSize + 1);
+const allCounts = allStarts.map(b => dartsList.filter(d => d >= b && d < b + bucketSize).length);
+// Trim leading/trailing all-zero buckets so the chart doesn't open with
+// a long dead stretch from turn 1 -- but keep any zero buckets that are
+// sandwiched between real data, so the shape of the distribution still
+// reads correctly.
+let firstIdx = allCounts.findIndex(c => c > 0);
+let lastIdx = allCounts.length - 1 - [...allCounts].reverse().findIndex(c => c > 0);
+if (firstIdx === -1) { firstIdx = 0; lastIdx = allStarts.length - 1; }
+const buckets = allStarts.slice(firstIdx, lastIdx + 1);
+const counts = allCounts.slice(firstIdx, lastIdx + 1);
+const labels = buckets.map(b=> `${b}–${b+bucketSize-1}`);
+const colors = buckets.map(b=> b+bucketSize-1 < 30 ? '#2f9e5f' : '#e0b13c');
+legsBarChart = new Chart(legBox.getContext('2d'), {
+type:'bar',
+data:{ labels, datasets:[{
+label:'Legs', data: counts,
+backgroundColor: colors, borderRadius:4, maxBarThickness:26,
+}]},
+options: barChartOptions('Darts to win the leg', 'Legs won'),
+});
+} else {
+legBox.classList.add('hidden'); legEmpty.classList.remove('hidden');
+}
+}
+function fmtCareer(v, decimals){ return v===null||v===undefined ? '—' : v.toFixed(decimals); }
+function barChartOptions(xLabel, yLabel){
+return {
+responsive:true, maintainAspectRatio:false,
+animation: reduceMotion ? false : {duration:400},
+plugins:{ legend:{display:false},
+tooltip:{ backgroundColor:'#1c2024', borderColor:'#363c41', borderWidth:1,
+titleColor:'#ece7da', bodyColor:'#ece7da' } },
+scales:{
+x:{ title:{display:true,text:xLabel,color:'#929a9c',font:{family:'Inter',size:11}},
+ticks:{color:'#929a9c', font:{family:'Inter',size:10}}, grid:{display:false} },
+y:{ title:{display:true,text:yLabel,color:'#929a9c',font:{family:'Inter',size:11}},
+ticks:{color:'#929a9c', font:{family:'Inter',size:11}, precision:0}, grid:{color:'rgba(54,60,65,.4)'} },
+}
+};
 }
 
 function sortCmp(a,b,key,dir){
-  if(key==='name'){ const r=String(a.name).localeCompare(String(b.name)); return dir==='asc'?r:-r; }
-  const av=a[key], bv=b[key];
-  const an=(av==null), bn=(bv==null);
-  if(an&&bn) return a.name.localeCompare(b.name);   // nulls together
-  if(an) return 1;  // nulls always sink to the bottom
-  if(bn) return -1;
-  if(av!==bv) return dir==='asc' ? av-bv : bv-av;
-  return a.name.localeCompare(b.name);              // stable tiebreak
+if(key==='name'){ const r=String(a.name).localeCompare(String(b.name)); return dir==='asc'?r:-r; }
+const av=a[key], bv=b[key];
+const an=(av==null), bn=(bv==null);
+if(an&&bn) return a.name.localeCompare(b.name); // nulls together
+if(an) return 1; // nulls always sink to the bottom
+if(bn) return -1;
+if(av!==bv) return dir==='asc' ? av-bv : bv-av;
+return a.name.localeCompare(b.name); // stable tiebreak
 }
-
 function renderOverviewTable(){
-  const {key,dir} = state.sort;
-  const arr = overviewList.slice().sort((a,b)=>sortCmp(a,b,key,dir));
-  const tb = $('overviewTable').querySelector('tbody');
-  tb.innerHTML = arr.map(o=>
-    `<tr class="clickable" data-key="${escapeAttr(o.name)}">${overviewCols.map(c=>c.cell(o)).join('')}</tr>`
-  ).join('');
-  tb.querySelectorAll('tr.clickable').forEach(tr=>{
-    tr.addEventListener('click', ()=>{ setSel(tr.dataset.key); $('oppSelect').value=tr.dataset.key; render();
-      window.scrollTo({top:0, behavior: reduceMotion?'auto':'smooth'}); });
-  });
-  $('overviewTable').querySelectorAll('thead th[data-key]').forEach(th=>{
-    const active = th.dataset.key===key;
-    th.classList.toggle('active', active);
-    const ar = th.querySelector('.arrow');
-    if(ar) ar.textContent = active ? (dir==='asc'?'▲':'▼') : '';
-  });
+const {key,dir} = state.sort;
+const arr = overviewList.slice().sort((a,b)=>sortCmp(a,b,key,dir));
+const tb = $('overviewTable').querySelector('tbody');
+tb.innerHTML = arr.map(o=>
+`<tr class="clickable" data-key="${escapeAttr(o.name)}">${overviewCols.map(c=>c.cell(o)).join('')}</tr>`
+).join('');
+tb.querySelectorAll('tr.clickable').forEach(tr=>{
+tr.addEventListener('click', ()=>{ setSel(tr.dataset.key); $('oppSelect').value=tr.dataset.key; render();
+window.scrollTo({top:0, behavior: reduceMotion?'auto':'smooth'}); });
+});
+$('overviewTable').querySelectorAll('thead th[data-key]').forEach(th=>{
+const active = th.dataset.key===key;
+th.classList.toggle('active', active);
+const ar = th.querySelector('.arrow');
+if(ar) ar.textContent = active ? (dir==='asc'?'▲':'▼') : '';
+});
 }
-
 /* ---------- helpers ---------- */
 function setBig(id, target, decimals){
-  const el = $(id);
-  if(reduceMotion){ el.textContent = target.toFixed(decimals); return; }
-  const start = 0, dur = 450, t0 = performance.now();
-  function step(t){
-    const p = Math.min(1,(t-t0)/dur);
-    const e = 1-Math.pow(1-p,3);
-    el.textContent = (start+(target-start)*e).toFixed(decimals);
-    if(p<1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
+const el = $(id);
+if(reduceMotion){ el.textContent = target.toFixed(decimals); return; }
+const start = 0, dur = 450, t0 = performance.now();
+function step(t){
+const p = Math.min(1,(t-t0)/dur);
+const e = 1-Math.pow(1-p,3);
+el.textContent = (start+(target-start)*e).toFixed(decimals);
+if(p<1) requestAnimationFrame(step);
+}
+requestAnimationFrame(step);
 }
 function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
 function escapeAttr(s){ return escapeHtml(s); }
-
 /* ---------- events ---------- */
 function setMode(m){
-  if(state.mode===m) return;
-  state.mode = m;
-  state.sort = (m==='event') ? {key:'date',dir:'asc'} : {key:'p',dir:'desc'};
-  $('modeOpp').setAttribute('aria-pressed', m==='opp');
-  $('modeEvent').setAttribute('aria-pressed', m==='event');
-  populatePicker();
-  render();
+if(state.mode===m) return;
+state.mode = m;
+if(m!=='career') state.sort = (m==='event') ? {key:'date',dir:'asc'} : {key:'p',dir:'desc'};
+$('modeOpp').setAttribute('aria-pressed', m==='opp');
+$('modeEvent').setAttribute('aria-pressed', m==='event');
+$('modeCareer').setAttribute('aria-pressed', m==='career');
+$('oppPickerField').classList.toggle('hidden', m==='career');
+$('metricPickerField').classList.toggle('hidden', m==='career');
+if(m!=='career') populatePicker();
+render();
 }
 $('modeOpp').addEventListener('click', ()=> setMode('opp'));
 $('modeEvent').addEventListener('click', ()=> setMode('event'));
+$('modeCareer').addEventListener('click', ()=> setMode('career'));
 $('oppSelect').addEventListener('change', e=>{ setSel(e.target.value); render(); });
 $('metricSelect').addEventListener('change', e=>{ state.metric = e.target.value; render(); });
 $('ownBtn').addEventListener('click', ()=>{ showIntro(); window.scrollTo({top:0, behavior: reduceMotion?'auto':'smooth'}); });
 $('backBtn').addEventListener('click', ()=>{ loadOwner(); window.scrollTo({top:0, behavior: reduceMotion?'auto':'smooth'}); });
 $('introBack').addEventListener('click', ()=>{ loadOwner(); window.scrollTo({top:0, behavior: reduceMotion?'auto':'smooth'}); });
 $('resetBtn').addEventListener('click', ()=>{
-  state.rows=[]; state.mode='opp'; state.opp='ALL'; state.event='ALL'; state.sort={key:'p',dir:'desc'};
-  $('modeOpp').setAttribute('aria-pressed','true'); $('modeEvent').setAttribute('aria-pressed','false');
-  chart&&chart.destroy(); chart=null;
-  $('dash').classList.add('hidden'); $('topRight').classList.add('hidden');
-  $('intro').classList.remove('hidden'); $('pasteArea').value=''; $('err').textContent='';
-  $('introBack').classList.toggle('hidden', !hasOwner());
+state.rows=[]; state.mode='opp'; state.opp='ALL'; state.event='ALL'; state.sort={key:'p',dir:'desc'};
+state.detailRange={preset:'all',anchor:null}; state.careerRange={preset:'all',anchor:null}; state.legsRange={preset:'all',anchor:null};
+$('modeOpp').setAttribute('aria-pressed','true'); $('modeEvent').setAttribute('aria-pressed','false');
+$('modeCareer').setAttribute('aria-pressed','false');
+$('oppPickerField').classList.remove('hidden'); $('metricPickerField').classList.remove('hidden');
+chart&&chart.destroy(); chart=null;
+checkoutBarChart&&checkoutBarChart.destroy(); checkoutBarChart=null;
+legsBarChart&&legsBarChart.destroy(); legsBarChart=null;
+$('careerStatsView').classList.add('hidden');
+$('dash').classList.add('hidden'); $('topRight').classList.add('hidden');
+$('intro').classList.remove('hidden'); $('pasteArea').value=''; $('legsPasteArea').value=''; $('err').textContent='';
+$('introBack').classList.toggle('hidden', !hasOwner());
 });
-
 $('fileBtn').addEventListener('click', ()=> $('fileInput').click());
 $('fileInput').addEventListener('change', e=>{
-  const f = e.target.files[0]; if(!f) return;
-  const rd = new FileReader();
-  rd.onload = ()=> tryIngest(rd.result);
-  rd.readAsText(f);
+handleFiles(e.target.files);
+e.target.value = ''; // allow re-selecting the same file(s) later
 });
 $('pasteArea').addEventListener('input', ()=>{
-  const v = $('pasteArea').value;
-  if(v.trim().split('\n').length>=2 && /[\t,]/.test(v)) tryIngest(v, true);
+const v = $('pasteArea').value;
+if(v.trim().split('\n').length>=2 && /[\t,]/.test(v)) tryIngest(v, true);
+});
+$('legsPasteBtn').addEventListener('click', ()=>{
+const text = $('legsPasteArea').value;
+if(!text.trim()) return;
+if(!state.rows.length){
+$('err').textContent = 'Add your main match data first (above), then the leg-by-leg data.';
+return;
+}
+try{
+ingestLegs(text);
+render();
+$('err').textContent = '';
+}catch(e){ $('err').textContent = 'Could not read that leg-by-leg data: ' + e.message; }
 });
 function tryIngest(text, soft){
-  try{ $('err').textContent=''; state.showcase=false; ingest(text); }
-  catch(err){ if(!soft) $('err').textContent = err.message; else $('err').textContent=''; }
+try{ $('err').textContent=''; state.showcase=false; ingest(text); }
+catch(err){ if(!soft) $('err').textContent = err.message; else $('err').textContent=''; }
 }
-
+// Peek at a CSV's header row to tell match-level data apart from
+// leg-level data, so file upload/drop can accept either or both at once
+// without the person needing to know which is which.
+function classifyCsv(text){
+try{
+const parsed = Papa.parse(text.trim(), {header:true, skipEmptyLines:true, preview:1});
+const headers = parsed.meta.fields || [];
+const cols = detectColumns(headers);
+if(cols.date && cols.opponent && cols.legsYou && cols.legsOpp) return 'matches';
+const legsFrags = ['Mid','Leg','Player','Won'];
+if(legsFrags.every(frag => headers.some(h=>norm(h)===norm(frag)))) return 'legs';
+return 'unknown';
+}catch(e){ return 'unknown'; }
+}
+function handleFiles(fileList){
+const files = Array.from(fileList||[]);
+if(!files.length) return;
+let remaining = files.length;
+let matchesText = null, legsText = null, unknownCount = 0;
+files.forEach(f=>{
+const rd = new FileReader();
+rd.onload = ()=>{
+const text = rd.result;
+const kind = classifyCsv(text);
+if(kind==='matches') matchesText = text;
+else if(kind==='legs') legsText = text;
+else unknownCount++;
+remaining--;
+if(remaining===0) finishFileIngest(matchesText, legsText, unknownCount);
+};
+rd.readAsText(f);
+});
+}
+function finishFileIngest(matchesText, legsText, unknownCount){
+if(!matchesText){
+if(legsText){
+$('err').textContent = "That looks like leg-by-leg data, but I still need your main match CSV (with Date/Opponent/Legs_You/Legs_Opp) too.";
+} else {
+$('err').textContent = unknownCount
+? "Couldn't recognize that as match data or leg-by-leg data -- check the header row."
+: "Couldn't read a usable CSV from what you selected.";
+}
+return;
+}
+try{
+$('err').textContent = '';
+state.showcase = false;
+ingest(matchesText); // clears any stale legs data (see ingest())
+if(legsText) ingestLegs(legsText);
+render();
+}catch(err){ $('err').textContent = err.message; }
+}
 // drag & drop
 const drop = $('drop');
 ['dragenter','dragover'].forEach(ev=> drop.addEventListener(ev, e=>{e.preventDefault();drop.classList.add('drag');}));
 ['dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{e.preventDefault();drop.classList.remove('drag');}));
 drop.addEventListener('drop', e=>{
-  const f = e.dataTransfer.files[0]; if(!f) return;
-  const rd = new FileReader(); rd.onload=()=>tryIngest(rd.result); rd.readAsText(f);
+handleFiles(e.dataTransfer.files);
 });
-
 /* ---------- demo data ---------- */
 $('demoBtn').addEventListener('click', ()=>{
-  const opps = ['Jack Daffin','Tony Bennett','Alex Boag-Munro','Wayne Green','Kevin Newman'];
-  const events = ['Div 4 Fall','Dev #16','Dev #17','Div 4 Spring'];
-  let lines = ['Date,Opponent,Event,Legs_You,Legs_Opp,Your_3Dart_Avg,Your_First9,Your_Checkout%'];
-  let day = new Date('2025-01-08');
-  let seed = 7;
-  const rnd = ()=>{ seed=(seed*9301+49297)%233280; return seed/233280; };
-  for(let i=0;i<46;i++){
-    const opp = opps[Math.floor(rnd()*opps.length)];
-    const base = {'Jack Daffin':33,'Tony Bennett':40,'Alex Boag-Munro':37,'Wayne Green':35,'Kevin Newman':42}[opp];
-    const avg = (base + (rnd()*6-3) + i*0.06).toFixed(2);
-    const first9 = (parseFloat(avg)+ (rnd()*8) ).toFixed(2);
-    const co = (rnd()*22+ (parseFloat(avg)-33) ).toFixed(1);
-    const ly = Math.floor(rnd()*4)+ (parseFloat(avg)>38?2:0);
-    const lo = Math.floor(rnd()*4)+ (parseFloat(avg)<36?2:0);
-    const ds = day.toISOString().slice(0,10);
-    lines.push(`${ds},${opp},${events[Math.floor(rnd()*events.length)]},${Math.min(ly,6)},${Math.min(lo,6)},${avg},${first9},${co}%`);
-    day = new Date(day.getTime()+ (3+Math.floor(rnd()*6))*86400000);
-  }
-  tryIngest(lines.join('\n'));
+const opps = ['Jack Daffin','Tony Bennett','Alex Boag-Munro','Wayne Green','Kevin Newman'];
+const events = ['Div 4 Fall','Dev #16','Dev #17','Div 4 Spring'];
+let lines = ['Date,Opponent,Event,Legs_You,Legs_Opp,Your_3Dart_Avg,Your_First9,Your_Checkout%'];
+let day = new Date('2025-01-08');
+let seed = 7;
+const rnd = ()=>{ seed=(seed*9301+49297)%233280; return seed/233280; };
+for(let i=0;i<46;i++){
+const opp = opps[Math.floor(rnd()*opps.length)];
+const base = {'Jack Daffin':33,'Tony Bennett':40,'Alex Boag-Munro':37,'Wayne Green':35,'Kevin Newman':42}[opp];
+const avg = (base + (rnd()*6-3) + i*0.06).toFixed(2);
+const first9 = (parseFloat(avg)+ (rnd()*8) ).toFixed(2);
+const co = (rnd()*22+ (parseFloat(avg)-33) ).toFixed(1);
+const ly = Math.floor(rnd()*4)+ (parseFloat(avg)>38?2:0);
+const lo = Math.floor(rnd()*4)+ (parseFloat(avg)<36?2:0);
+const ds = day.toISOString().slice(0,10);
+lines.push(`${ds},${opp},${events[Math.floor(rnd()*events.length)]},${Math.min(ly,6)},${Math.min(lo,6)},${avg},${first9},${co}%`);
+day = new Date(day.getTime()+ (3+Math.floor(rnd()*6))*86400000);
+}
+tryIngest(lines.join('\n'));
 });
-
 /* ---------- boot ---------- */
 boot();
 </script>

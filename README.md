@@ -1,102 +1,86 @@
-# OCHE — darts head-to-head analyzer
+# OCHE
 
-A self-contained darts performance analyzer. It boots into **your** match history
-(read from `data.csv`) and lets anyone else explore **their own** data in the
-browser via an "Analyze your own data" button. No server, no database, no
-accounts — everything runs client-side, and no data ever leaves the viewer's
-machine.
+A darts head-to-head and form-tracking dashboard for [n01darts.com](https://n01darts.com) ("nakka") players. Single-page, no backend, no build step — just a CSV-driven HTML file you can host anywhere.
 
-## The two files
+**Live:** [oche.pages.dev](https://oche.pages.dev)
 
-| File | What it is | How often you touch it |
-|------|------------|------------------------|
-| `index.html` | The whole app. | Deploy once, then never. |
-| `data.csv` | Your match history. | Overwrite after each match. |
+## What it does
 
-Keep both at the **same level** on your host (e.g. both at the site root), so
-`index.html` can find `data.csv` sitting next to it.
+Point OCHE at your match history and it gives you:
 
-## Deploy (one time)
+- **Opponents view** — head-to-head record, form (W/L/D pips), trend chart, and a full meeting-by-meeting table for any opponent you've faced.
+- **Events view** — same, but grouped by tournament/event instead of opponent.
+- **Career view** — high checkout, fewest darts in a won 501 leg, career 3-dart average, career first-9 average, an estimated dart-weighted career checkout %, plus two charts: every 100+ checkout by exact value, and legs won grouped by dart count (zoomable to 1M/3M/6M/1Y/All, with a running "this period" average alongside your all-time average).
+- **Match detail** — click any point on a trend chart to open a nakka-style stats table (You vs Opponent: 3-dart avg, First 9, scoring buckets, high finish, checkout %) with the full leg-by-leg breakdown underneath.
+- **Bring-your-own-data** — upload or paste a CSV (or two — a leg-level file unlocks the Career tab and match detail) with zero setup, or use the built-in demo dataset to try it out first.
 
-Any static host works. The simplest options give you a URL, free HTTPS, and a
-custom domain in a few minutes:
+## Getting your own data in
 
-- **Cloudflare Pages** or **Netlify** — drag the folder onto their dashboard.
-- **GitHub Pages** — push the two files to a repo, enable Pages in settings.
-- **AWS** — `index.html` + `data.csv` in an S3 bucket, CloudFront in front for
-  HTTPS and a custom domain. More moving parts; best if you want it inside an
-  existing AWS footprint.
+If you play on n01darts.com, the easiest path is the companion tool, **`oche_sync.py`** (packaged as `oche_sync.zip`, with its own README inside):
 
-Then send people the link. They land on your stats; the button lets them try it
-with their own data (nothing they load is saved anywhere).
+1. Download and unzip it.
+2. Run `python3 oche_sync.py`. First run asks for your n01 display name and your "gid" (see the zip's README for how to find it) — every run after that is silent and just pulls what's new.
+3. It builds you a fully personal, offline `index.html` (your data baked right in — no server needed), plus `data.csv`/`legs.csv` if you'd rather add them to a hosted copy of OCHE instead.
 
-## Update after each match
+No n01darts account, or want to build your own data by hand? See the schema below — any spreadsheet with the right columns works.
 
-1. Open your Google Sheet and select the cells **including the header row**.
-2. Copy, then paste into `data.csv`, replacing its entire contents. Save.
-3. Upload `data.csv` to your host.
+## Data schema
 
-That's the whole loop. `index.html` is never edited.
+**`data.csv`** (required columns in **bold**):
 
-The page fetches `data.csv` with caching disabled, so viewers see the new data
-immediately. After you overwrite the file, a normal redeploy on
-Pages/Netlify/GitHub Pages refreshes the host's edge cache automatically.
+| Column | Notes |
+|---|---|
+| **`Date`** | Any sortable date format |
+| **`Opponent`** | |
+| **`Legs_You`** / **`Legs_Opp`** | |
+| `Event` | Groups matches in the Events view |
+| `Your_3Dart_Avg`, `Your_First9`, `Your_Checkout%` | Unlock the metric-tracking dropdown |
+| `Your_High_Finish`, `Your_Checkout_Makes`, `Your_Checkout_Attempts` | Power the Career page -- see note below on accuracy |
+| `Your_60_Plus` … `Your_180s` | Scoring-band counts (cumulative — a 140 counts toward 60+/80+/100+/120+/140+ all at once) |
+| `Your_100_Plus_Finishes`, `Your_Best_Leg_Darts`, `Your_Worst_Leg_Darts` | |
+| `Opp_*` | Same set of columns, opponent's side — powers the match-detail stats table |
+| `Mid` | A stable match ID, used to join against `legs.csv` for match detail |
 
-## Preview locally
+**`legs.csv`** (optional, unlocks the Career tab and leg-by-leg match detail):
 
-Because the page fetches `data.csv`, double-clicking `index.html` won't work
-(a `file://` page is blocked from reading local files). Instead, from the
-folder containing both files:
+| Column | Notes |
+|---|---|
+| `Mid`, `Leg`, `Player` (`You`/`Opponent`), `Won` | Required |
+| `Darts`, `CheckoutValue`, `StartScore` | Needed for the Career page's checkout/leg-length charts |
+
+Column names are matched loosely (case/spacing-insensitive), so a hand-edited Google Sheet export works fine as long as the header row is close.
+
+## Deploying your own copy
+
+Five files, all static, no build step:
+
+```
+index.html          <- this repo
+data.csv             <- your match history
+legs.csv              <- your leg-level detail (optional but recommended)
+oche_sync.zip          <- the data-puller tool + its README, for others to grab
+oche_sync_readme.md     <- same README, standalone (for the "read first" link)
+```
+
+Push them to Cloudflare Pages, Netlify, GitHub Pages, or any static host. To preview locally before deploying, `fetch()` won't work over `file://`, so run a tiny server in the folder instead:
 
 ```
 python3 -m http.server
 ```
 
-then open <http://localhost:8000/>.
+then visit `http://localhost:8000/`.
 
-## Want a data-less public version?
+## Notes
 
-Deploy `index.html` **without** a `data.csv`. With no history file to load, the
-page falls through to the uploader — a clean "bring your own data" tool with no
-baked-in stats.
-
-## CSV format
-
-**Required columns** (the tool won't load without these):
-
-- `Date` — any sortable date, e.g. `2025-09-20`
-- `Opponent`
-- `Legs_You`
-- `Legs_Opp`
-
-**Optional, but they unlock more:**
-
-- `Event` — powers the Events view (drill into a league/tournament; events are
-  ordered chronologically).
-- `Your_3Dart_Avg`, `Your_First9`, `Your_Checkout%` — appear in the
-  "Metric to track" dropdown and drive the trend chart and averages.
-
-Column names are matched loosely (case and punctuation don't matter), and any
-extra columns you keep in the sheet are simply ignored. Percent signs in the
-checkout column are fine.
-
-## Configuration (rarely needed)
-
-Near the top of `index.html`, in the `<script>` block:
-
-- `OWNER_NAME` — the name shown on the page (e.g. `"Craig"`).
-- `DATA_URL` — path to the history file. Default `"./data.csv"`.
-- `EMBEDDED_CSV` — optional fallback used only if `data.csv` can't be fetched
-  (e.g. opened via `file://`). Normally left empty.
-
-## Troubleshooting
-
-- **Page shows the uploader instead of my stats.** `data.csv` wasn't found, or
-  it isn't next to `index.html`. Check the path and that it deployed.
-- **"Missing column(s)" error.** One of the four required columns isn't in the
-  header row. Check the exact names.
-- **A column I expected isn't charted.** Only `Your_3Dart_Avg`, `Your_First9`,
-  and `Your_Checkout%` are picked up as metrics; everything else is carried but
-  not plotted.
-- **Old data still showing after an update.** Re-deploy (or purge the cache) on
-  your host so its edge picks up the new `data.csv`.
+- **Checkout attempts/percentage are a best-guess estimate, not a hard
+  fact.** n01's match data only exposes each turn's total score, never
+  the individual dart values that made it up, so there's no way to know
+  for certain which turns were genuinely thrown at a double versus just
+  ordinary scoring. `oche_sync.py`'s crediting logic (see its README) is
+  tuned against real match history and generally lands close, but any
+  single match can still be off, sometimes noticeably. Everything else
+  in OCHE (legs, darts, checkout *values*, 3-dart average, scoring bands)
+  comes straight from n01's own recorded data and is exact.
+- Talks to n01's internal backend, not an official public API — this could break if n01 changes something. Keep your own copy of the puller tool up to date if that happens.
+- Everything runs client-side. Your data never leaves your browser except however *you* choose to host/share the CSVs.
+- See `DEPLOY_NOTES.md` for a running changelog of what's shipped and when.
