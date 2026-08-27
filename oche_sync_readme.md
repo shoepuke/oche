@@ -7,21 +7,23 @@ checkouts, all of it.
 
 ## What you need
 
-Just Python 3. If you don't have it, download it from
-https://www.python.org/downloads/ (any recent version works). On
-Windows, make sure you check the box that says "Add Python to PATH"
-during install.
+Just Python 3.
+
+- **Windows:** if you don't have it, download from
+  https://www.python.org/downloads/ (any recent version works) — make
+  sure you check the box that says "Add Python to PATH" during install.
+- **Mac:** see "Running it on a Mac" below — installing Python and
+  actually running the script both work a bit differently than Windows.
 
 ## How to run it
 
 1. Unzip this folder somewhere convenient (your Desktop is fine).
-2. Double-click `oche_sync.py`, or open a terminal/command prompt in
-   this folder and run:
-
-   ```
-   python3 oche_sync.py
-   ```
-
+2. Run it:
+   - **Windows:** double-click `oche_sync.py`.
+   - **Mac:** double-clicking usually won't work — see "Running it on a
+     Mac" below.
+   - **Linux:** open a terminal in this folder and run
+     `python3 oche_sync.py`.
 3. **The first time**, it'll ask you two questions:
    - Your exact display name as it appears on n01
    - Your n01darts "gid" (see below for how to find it)
@@ -45,6 +47,47 @@ during install.
 That's it. Run it again anytime you want your stats updated -- just
 double-click `oche_sync.py` again, no questions asked the second time
 onward, and your local `index.html` gets refreshed automatically too.
+
+## Running it on a Mac
+
+Two things work differently than Windows: getting Python installed, and
+actually running the script (double-clicking a `.py` file doesn't do
+anything useful on a Mac by default -- you'll use Terminal instead,
+which is much less scary than it sounds).
+
+1. **Check if you already have Python 3.** Press `Cmd + Space`, type
+   `Terminal`, hit Enter -- this opens the Terminal app. Type:
+
+   ```
+   python3 --version
+   ```
+
+   If that prints a version number like `Python 3.11.x`, you're set --
+   skip to step 3. (Older Macs came with a "Python 2" pre-installed;
+   that's a different, unrelated thing and won't work here, hence the
+   check.)
+
+2. **If you don't have it**, go to
+   https://www.python.org/downloads/macos/, download the installer, and
+   run it, clicking through with the defaults. If macOS shows a warning
+   about an "unidentified developer," go to **System Settings → Privacy
+   & Security** and click **"Open Anyway"** next to the blocked-app
+   notice, then try opening the installer again.
+
+3. **Navigate to the unzipped folder in Terminal.** Type `cd ` (with a
+   space after it, don't press Enter yet), then drag the unzipped
+   `oche_sync` folder from Finder directly into the Terminal window --
+   it'll automatically fill in the correct path. Now press Enter.
+
+4. **Run it:**
+
+   ```
+   python3 oche_sync.py
+   ```
+
+Every time after this first run, just repeat steps 3-4 (or keep the
+Terminal window open and press the up arrow to bring back the last
+command instead of retyping it).
 
 ## Finding your gid
 
