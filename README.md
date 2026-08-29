@@ -19,7 +19,7 @@ Point OCHE at your match history and it gives you:
 If you play on n01darts.com, the easiest path is the companion tool, **`oche_sync.py`** (packaged as `oche_sync.zip`, with its own README inside):
 
 1. Download and unzip it.
-2. Run `python3 oche_sync.py`. First run asks for your n01 display name and your "gid" (see the zip's README for how to find it) — every run after that is silent and just pulls what's new.
+2. Run `python3 oche_sync.py`. First run asks for your n01 display name, which account you signed into n01 with (Google, Facebook, or X), and the id for that account (see the zip's README for how to find it) — every run after that is silent and just pulls what's new.
 3. It builds you a fully personal, offline `index.html` (your data baked right in — no server needed), plus `data.csv`/`legs.csv` if you'd rather add them to a hosted copy of OCHE instead.
 
 No n01darts account, or want to build your own data by hand? See the schema below — any spreadsheet with the right columns works.
