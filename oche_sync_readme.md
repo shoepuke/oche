@@ -17,16 +17,22 @@ Just Python 3.
 
 ## How to run it
 
-1. Unzip this folder somewhere convenient (your Desktop is fine).
+1. Unzip this folder somewhere convenient (your Desktop is fine). On
+   Mac/Windows this means double-clicking the `.zip` file in Finder or
+   File Explorer -- it creates a **new folder** sitting right next to
+   it with the same name. Make sure you can see that new folder (not
+   just the original `.zip`) before continuing -- you'll need it, not
+   the zip file itself.
 2. Run it:
    - **Windows:** double-click `oche_sync.py`.
    - **Mac:** double-clicking usually won't work — see "Running it on a
      Mac" below.
    - **Linux:** open a terminal in this folder and run
      `python3 oche_sync.py`.
-3. **The first time**, it'll ask you two questions:
+3. **The first time**, it'll ask you a few quick questions:
    - Your exact display name as it appears on n01
-   - Your n01darts "gid" (see below for how to find it)
+   - Which account you use to sign into n01 -- Google, Facebook, or X/Twitter
+   - Your id for that account (see below for how to find it)
 
    After that, it remembers both -- you'll never be asked again.
 
@@ -74,10 +80,30 @@ which is much less scary than it sounds).
    & Security** and click **"Open Anyway"** next to the blocked-app
    notice, then try opening the installer again.
 
-3. **Navigate to the unzipped folder in Terminal.** Type `cd ` (with a
-   space after it, don't press Enter yet), then drag the unzipped
-   `oche_sync` folder from Finder directly into the Terminal window --
-   it'll automatically fill in the correct path. Now press Enter.
+   **One more one-time step, easy to miss:** after installing, go to
+   Finder → Applications → the "Python 3.x" folder it created, and
+   double-click **"Install Certificates.command"** inside it. A Terminal
+   window will briefly appear and close on its own -- that's it working.
+   Skipping this causes a `CERTIFICATE_VERIFY_FAILED` error the first
+   time the script tries to reach n01's server (harmless and fixable by
+   just doing this step and running the script again, but easiest to
+   just do it now).
+
+3. **Navigate to the unzipped folder in Terminal.** This is two
+   separate actions, in this exact order:
+
+   - First, click into the Terminal window and type `cd ` -- just the
+     letters `c`, `d`, then one space. **Don't press Enter yet, and
+     don't type anything else.**
+   - Then, in Finder, drag the unzipped **folder** (not the `.zip`
+     file -- look for a plain folder icon, not a zipper/archive icon)
+     onto the Terminal window. This pastes the correct path in after
+     `cd `. *Now* press Enter.
+
+   If you type things in the wrong order, or drag the `.zip` file
+   instead of the unzipped folder, you'll see something like
+   `zsh: command not found` -- that's the signal something above went
+   sideways; just start again from the `cd ` step.
 
 4. **Run it:**
 
@@ -89,7 +115,7 @@ Every time after this first run, just repeat steps 3-4 (or keep the
 Terminal window open and press the up arrow to bring back the last
 command instead of retyping it).
 
-## Finding your gid
+## Finding your id
 
 1. Go to https://n01darts.com (there's no separate login button -- you
    authenticate as part of step 2).
@@ -100,10 +126,16 @@ command instead of retyping it).
 3. In the list of available online matches, click **your own name**.
 4. This opens your stats -- click **History**.
 5. Look at the URL in your browser's address bar. Copy the number after
-   `gid=`. That's it -- paste that in when the script asks.
+   `gid=`, `fid=`, or `tid=` -- whichever one shows up. That's it --
+   paste that in when the script asks (and tell it which one it was, so
+   it knows to look for `gid=`, `fid=`, or `tid=` next time).
 
-Your gid identifies your n01/Google account, so treat it as personal
-(don't post it publicly), but it can only be used to *read* match
+Which one you see depends on how you signed in: Google gives `gid`,
+Facebook gives `fid`, X/Twitter gives `tid`. They're different account
+systems, so it does matter which one you use.
+
+Your id identifies your n01/Google/Facebook/X account, so treat it as
+personal (don't post it publicly), but it can only be used to *read* match
 history, not log in anywhere, so it's low-risk to use.
 
 ## Where your data goes
@@ -120,13 +152,13 @@ Inside, you'll find:
 - **`index.html` -- your personal stats page. Just double-click this.**
   Your data is baked right into the file, so it works completely
   offline.
-- `config.json` -- your saved name/gid, so you're never asked again
-- `excluded_match_ids.txt` -- **optional.** Want a specific match left out
-  of your stats entirely (a weird one-off game, whatever)? Create this
-  file (or add to it) with the match's `Mid` on its own line -- find the
-  Mid in `oche_data\data.csv`. Add `# a note to yourself` after it if
-  you want to remember why later. The match stays in your raw pulled
-  data either way, it's just left out of what OCHE sees.
+- `config.json` -- your saved name/id, so you're never asked again
+- `excluded_match_ids.txt` -- **optional.** Already sitting here with
+  format instructions and an example inside it. Want a specific match
+  left out of your stats entirely (a weird one-off game, whatever)? Open
+  it and add the match's `Mid` on its own line -- find the Mid in
+  `oche_data\data.csv`. The match stays in your raw pulled data either
+  way, it's just left out of what OCHE sees.
 - `raw_pull\` -- the script's own working data; you never need to touch
   this, but it's what makes updates fast (it remembers every match
   it's already fetched, so re-runs are quick and don't hammer n01's
@@ -138,11 +170,12 @@ Inside, you'll find:
 ## A note on game types
 
 By default, only standard 501 matches count toward your stats -- other
-game types (like a 301 tournament) get automatically left out, since
-they're not really comparable (much shorter legs, different checkout
-odds, etc.) and would just muddy a "progress over time" view. Your raw
-pulled data always has everything regardless. If you ever want every
-game type included, run with `--start-score all`.
+game types (like a 301 tournament, or Cricket) get automatically left
+out, since they're not really comparable (much shorter legs, different
+checkout odds, or a totally different scoring system entirely) and would
+just muddy a "progress over time" view. Your raw pulled data always has
+everything regardless. If you ever want every game type included, run
+with `--start-score all`.
 
 ## A couple of honest notes
 
